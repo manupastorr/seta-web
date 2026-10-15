@@ -1,174 +1,87 @@
-# Seta 🍄
+# Seta 🍄 web
 
-Local web app to browse a DJ library on a **BPM × energy** map, with **Camelot** mix hints, playback, and set-moment overlays. BPM, energy, and key come from local analysis: useful for exploration, not a substitute for Rekordbox when confidence is low.
+**Plan and rehearse a DJ set in the browser, then send it to Rekordbox.** A local web app that reads your own library: explore tracks on a BPM × energy map, arrange a set on real waveforms, shape every transition with EQ curves, and listen to the whole set before you play it.
 
-Default scan folders (override with `.env`):
+![Python](https://img.shields.io/badge/Python-Flask-blue)
+![JavaScript](https://img.shields.io/badge/JS-Web%20Audio%20%2B%20D3-yellow)
+![Tests](https://img.shields.io/badge/tests-127-brightgreen)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-- `~/Music/tracks` — approved library
-- `~/Downloads/To Curate` — intake / uncured batches
+![Seta Arrange: a full set on Rekordbox waveforms, then zooming into one transition and its mix curves](docs/media/seta-web-arrange.gif)
+
+## Why
+
+I wanted to hear a set before playing it. Not a playlist, the actual transitions: when the next track comes in, when the bass swaps, whether two vocals clash. Seta does that on my own Mac with my own files, and hands the result to Rekordbox with the mix points already set as cues.
+
+## Arrange a set
+
+![A whole set: 11 tracks, mix lengths, and warnings where keys clash](docs/media/arrange-set.png)
+
+| | |
+|---|---|
+| **Real waveforms** | Pick any Rekordbox playlist. Tracks show with Rekordbox's own 3-band waveforms, beat grid and phrases. |
+| **Synced mixes** | The incoming track enters at the outgoing tempo, holds it through the mix, then glides back to its own BPM. Mixes start on a phrase. |
+| **Mix curves** | Every transition has volume, low, mid and high lines for both tracks. A default recipe follows DJ practice (one bassline at a time, bass swap on a phrase); drag points to change it. |
+| **Warnings** | Flags key clashes, mixes that are too short, and vocal overlaps (from Rekordbox's vocal detection). |
+| **Mixes only** | Skip the middle of each track and listen to the transitions back to back. |
+| **Sounds like a set** | Web Audio playback, sample-accurate, time-stretched with SoundTouch, loudness-matched to −9 LUFS, with a limiter on the master. |
+| **Export to Rekordbox** | One click writes a Rekordbox XML with the order and every mix point as memory cues. Earlier exports and the Rekordbox library are backed up first. |
+
+![One transition zoomed in: the incoming track's EQ lines over both waveforms](docs/media/arrange-mix.png)
+
+## Explore the library
+
+- **Mix map**: every track placed by BPM (x) and energy (y), colored by Camelot key, with set zones (warm up, groove, peak…) behind.
+- **Mix hints**: pick a track to see what mixes well next, by key, tempo and energy.
+- **Set draft**: shortlist tracks, mark finals, sort by energy or BPM, export M3U.
+- **Tags**: read and edit Rekordbox energy stars and My Tags, with filters.
+- Keyboard first: press `?` on any page.
 
 ## Quick start
 
+Needs macOS, Python 3.10+ and a music folder. Rekordbox is optional but unlocks Arrange.
+
 ```bash
 git clone https://github.com/manupastorr/seta-web.git
 cd seta-web
 ./start.sh
 ```
 
-`./start.sh` scans then starts the server. Open the URL printed in the terminal (default **http://127.0.0.1:8765**). Cached analysis is reused when files are unchanged.
+`start.sh` creates a `.venv`, installs `requirements.txt`, scans your music, and starts the server. Open the URL it prints (default http://127.0.0.1:8765). Rescans reuse the per-file cache.
 
-**Demo / landing page:** https://manupastorr.github.io/seta-landing/
-
-For a faster scan after adding only a few tracks (skips mix-edge rebuild):
+Default music folders: `~/Music/tracks` and `~/Downloads/To Curate`. To change them:
 
 ```bash
-./start.sh --quick
+cp .env.example .env   # then edit SETA_TRACKS_ROOT / SETA_CURATE_ROOT / SETA_PORT
 ```
 
-First run creates a local `.venv` and installs dependencies from `requirements.txt`.
+Supported audio: `.wav`, `.aiff`, `.aif`, `.flac`, `.mp3`.
 
-## Share with someone else (separate Mac, own tracks)
-
-Each person runs their **own copy** with **their own music folders**. The app does not sync libraries over the network.
-
-### 1. GitHub access
-
-Repo owner: **Settings → Collaborators → Add people** on [github.com/manupastorr/seta](https://github.com/manupastorr/seta).
-
-### 2. Clone and install
-
-```bash
-git clone https://github.com/manupastorr/seta-web.git
-cd seta-web
-cp .env.example .env   # optional — only if paths differ from defaults
-./start.sh
-```
-
-### 3. Music folders
-
-Use the same layout on her Mac (or set paths in `.env`):
-
-```
-~/Music/tracks/
-  House & Deep House/
-  Melodic House & Techno/
-  …
-
-~/Downloads/To Curate/
-  some playlist batch/
-```
-
-Supported audio: `.wav`, `.aiff`, `.aif`, `.flac`, `.mp3`
-
-### 4. Custom paths (`.env`)
-
-```bash
-cp .env.example .env
-```
-
-Edit `.env`:
-
-```bash
-SETA_TRACKS_ROOT=~/Music/tracks
-SETA_CURATE_ROOT=~/Downloads/To Curate
-SETA_PORT=8765
-```
-
-Multiple roots (colon-separated on macOS):
-
-```bash
-SETA_TRACKS_ROOTS=~/Music/tracks:~/Other/Approved
-SETA_CURATE_ROOTS=~/Downloads/To Curate:~/Incoming
-```
-
-CLI equivalents:
-
-```bash
-.venv/bin/python scan_library.py --tracks-root ~/Music/tracks --curate-root ~/Downloads/To\ Curate
-.venv/bin/python scan_library.py --tracks-root ~/Music/tracks/House --tracks-root ~/Music/tracks/Techno
-```
-
-Then `./start.sh` again. Each machine keeps its own `library.json` and `cache.json` (not in git).
-
-**SetaMac (native app):** download from [seta-mac releases](https://github.com/manupastorr/seta-mac/releases) — first launch runs in-app setup (no Terminal); then use **Library → Library Folders…** instead of editing `.env`.
-
-## Manual commands
-
-```bash
-# Scan only
-.venv/bin/python scan_library.py
-
-# Scan with options
-.venv/bin/python scan_library.py --workers 4 --skip-edges
-
-# Server only (requires library.json)
-.venv/bin/python server.py
-```
-
-## What it does
+## How it is built
 
 | Piece | Role |
-|-------|------|
-| `config.py` | Paths and port from env / `.env` |
-| `scan_library.py` | Walks audio folders, analyzes tracks, writes `library.json` + mix edges |
-| `analyze.py` | BPM (`bpm_confidence`), Camelot key, phrase-based energy, vocals hint, Serato-style waveform peaks (400 bars from first ~90s window) |
-| `camelot.py` | Wheel colors + mix compatibility scoring |
-| `server.py` | Flask: UI, `/api/library`, audio streaming |
-| `static/index.html` | Single-page D3 map + player |
+|---|---|
+| `scan_library.py`, `analyze.py` | Walk the folders and analyze each track with librosa: BPM with confidence, Camelot key, phrase-based energy curve, vocals hint, waveform peaks. |
+| `rekordbox.py`, `rb_waveform.py`, `rb_tags.py` | Read Rekordbox's database and analysis files: playlists, beat grids, phrases, waveforms, My Tags. |
+| `rb_xml.py`, `arrange_store.py` | Rekordbox XML export with cues; arrangements saved on the Mac with full history. |
+| `server.py` | Flask API, audio streaming, UI. |
+| `static/` | D3 map, Arrange timeline, Web Audio mixer (`mixRecipe.js`, `tempoMap.js`, `loudness.js`, `stretchWorker.js`). |
 
-### Layouts
-
-- **Mix map** — tracks placed by BPM (x) and energy (y); soft clustering when many share the same values
-- **Explore** — force graph by mix links; BPM/energy grid + set-moment clouds stay as background reference
-- **Set draft** — shortlist tracks for a set (~50 target): add/remove, final marks, notes, energy ramp, draft-only filter, M3U/text export (persisted in browser `localStorage`)
-- **Manual intensity** — hover a track and adjust the tooltip slider to override map/draft energy locally; click `Auto` to return to scanner output.
-
-### Energy fields
-
-The scanner keeps `energy` for backward compatibility and also writes:
-
-- `energy_auto` / `energy_effective`: generated score used by current web/mac UIs unless a local manual override exists.
-- `energy_main`, `energy_avg`, `energy_peak`, `energy_intro`, `energy_outro`: full-track phrase summary scores.
-- `energy_confidence`: confidence in one scalar representing the full track; high variation lowers it.
-- `energy_curve`: ordered 32-bar phrase scores, using a 45s fallback window when BPM is unknown.
-
-Manual overrides are not written into `library.json`; the web app stores them in browser `localStorage` under `seta-energy-overrides-v1`.
-
-### Generated files (gitignored)
-
-- `library.json` — scan output for the UI
-- `cache.json` — per-file analysis cache
-- `scan.log`
-- `.env` — local path overrides
-
-Re-scan after adding tracks or changing analysis (`ANALYSIS_VERSION` in `analyze.py`). Version-12 cache entries are upgraded with an energy-only pass; older cache versions still require full re-analysis.
+Nothing leaves your machine. Analysis is for exploring; when BPM confidence is low, trust Rekordbox.
 
 ## Tests
 
-From the repo root after `./start.sh` has created `.venv` once:
-
 ```bash
 .venv/bin/python -m unittest discover -s tests -v
-node --test tests/test_playback.mjs tests/test_draft.mjs tests/test_mix_links.mjs tests/test_render_safe.mjs
+node --test tests/*.mjs
 ```
 
-Optional browser smoke test against a running local server:
+76 Python and 51 JavaScript tests cover analysis, Camelot scoring, the mix recipe, tempo maps, loudness (checked against the BS.1770 997 Hz calibration tone), Rekordbox parsing and the arrangement store.
 
-```bash
-SETA_RUN_BROWSER_SMOKE=1 SETA_BASE_URL=http://127.0.0.1:8765 node --test tests/test_browser_smoke.mjs
-```
+## Related
 
-## Scanner exclusions
+[SetaMac](https://github.com/manupastorr/seta-mac) is the native macOS app for the first phase: map your library and draft a set, no Terminal needed.
 
-Not indexed as library tracks:
+## License
 
-- `samples/sample_*.wav` under `To Curate` — short clips from **soundcloud-set-id** set identification (Shazam probes). Keep `tracklist.md` / `tracklist.json`; delete `samples/` when done.
-
-## Library organization (Manuel’s setup)
-
-Genre folders, sorting rules, and curation workflow for the main library live in a separate notes file at `~/Music/tracks/AGENTS.md`. Seta only **reads** audio folders; it does not move or classify files.
-
-## Requirements
-
-- Python 3.10+
-- See `requirements.txt` — installed automatically by `start.sh`
+MIT. SoundTouch (`static/vendor/soundtouch.js`) is LGPL-2.1, license next to it. Made by [Manu Pastor](https://manupastor.de/dj/), a DJ who builds his own tools.
