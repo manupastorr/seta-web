@@ -1,0 +1,38 @@
+# Generated scan output (rebuilt locally)
+library.json
+cache.json
+scan.log
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# Audio & playlists (not part of this app)
+*.wav
+*.aiff
+*.aif
+*.flac
+*.mp3
+*.m3u8
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Local overrides
+.env
+
+# Tags page: queued Rekordbox edits and master.db backups
+rb_pending.json
+rb_backups/
+
+# Personal gig plans stay on this machine.
+static/gig-plans.local.json
+
+# Arrange page: saved arrangements and their history (personal data).
+arrangements.json
+arrangements-history.jsonl

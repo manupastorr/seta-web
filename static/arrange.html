@@ -1,0 +1,2105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Seta Arrange</title>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --panel: #f5f5f8;
+      --panel-border: #e2e2ea;
+      --text: #1a1a24;
+      --muted: #6b6b80;
+      --accent: #6b4fd8;
+      --accent-soft: rgba(107, 79, 216, 0.12);
+      --wave-bg: #0b0b0b;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #15151c;
+        --panel: #1e1e28;
+        --panel-border: #2e2e3a;
+        --text: #ececf2;
+        --muted: #9090a4;
+        --accent: #9d86ff;
+        --accent-soft: rgba(157, 134, 255, 0.16);
+      }
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; height: 100%; background: var(--bg); color: var(--text);
+      font: 14px/1.45 "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+    }
+    body { display: flex; flex-direction: column; }
+    button, select { font: inherit; color: inherit; }
+    button { cursor: pointer; }
+    header {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px;
+      padding: 10px 16px; border-bottom: 1px solid var(--panel-border);
+    }
+    header h1 { font-size: 16px; margin: 0 6px 0 0; white-space: nowrap; }
+    header a { color: var(--accent); }
+    header .group { display: flex; align-items: center; gap: 6px; }
+    #playlist { max-width: min(360px, 60vw); }
+    .btn:disabled { opacity: .4; cursor: default; }
+    select, .btn {
+      border: 1px solid var(--panel-border); background: var(--bg); border-radius: 8px; padding: 5px 10px;
+    }
+    .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    #info { color: var(--muted); white-space: nowrap; }
+    .zoom { display: flex; align-items: center; gap: 6px; color: var(--muted); margin-left: auto; }
+    .toggle { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+    .btn.small { padding: 3px 10px; min-width: 32px; }
+    #undo, #redo { font-size: 16px; line-height: 1; padding: 5px 8px; }
+    #zoom-level { min-width: 3ch; text-align: center; color: var(--text); font-variant-numeric: tabular-nums; }
+
+    #overview-wrap { position: relative; overflow: hidden; margin: 12px 16px 6px; height: 64px; background: var(--wave-bg); border-radius: 6px; cursor: pointer; }
+    #overview { display: block; width: 100%; height: 100%; }
+    #overview-view { position: absolute; top: 0; bottom: 0; border: 1px solid rgba(255,255,255,.8); border-radius: 4px; box-shadow: 0 0 0 9999px rgba(0,0,0,.5); pointer-events: none; display: none; }
+    .playhead { position: absolute; top: 0; bottom: 0; width: 2px; background: #fff; pointer-events: none; box-shadow: 0 0 0 1px rgba(0,0,0,.4); display: none; }
+
+    #work { flex: 1; min-height: 0; display: flex; margin: 0 16px; }
+    #timeline { flex: 1; min-width: 0; min-height: 0; overflow: auto; border: 1px solid var(--panel-border); border-radius: 8px; background: var(--panel); }
+    #lanes { --lane-h: 110px; position: relative; height: calc(2 * var(--lane-h) + 62px); }
+    .skip { position: absolute; top: 0; bottom: 0; width: 56px; display: flex; align-items: center; justify-content: center; text-align: center; white-space: pre-line; line-height: 1.3; font-size: 10px; color: var(--muted); background: repeating-linear-gradient(135deg, transparent 0 6px, var(--panel-border) 6px 7px); pointer-events: none; font-variant-numeric: tabular-nums; }
+    .tick { position: absolute; top: calc(2 * var(--lane-h) + 38px); height: 20px; border-left: 1px solid var(--panel-border); padding-left: 4px; font-size: 10px; line-height: 20px; color: var(--muted); font-variant-numeric: tabular-nums; pointer-events: none; }
+    #lane-playhead { background: var(--accent); box-shadow: none; z-index: 4; }
+    .mix {
+      position: absolute; top: 3px; transform: translateX(-50%); z-index: 3;
+      border: 1px solid var(--panel-border); background: var(--bg); border-radius: 999px;
+      padding: 0 8px; font-size: 11px; line-height: 18px; color: var(--muted); white-space: nowrap;
+    }
+    .mix { display: flex; align-items: center; gap: 2px; padding: 0 2px; }
+    .mix .label { padding: 0 4px; }
+    .mix.compact .label { padding: 0 2px; }
+    .mix.warn { border-color: #e2a03a; color: #b26a00; }
+    .mix.editing { border-color: var(--accent); color: var(--text); padding-right: 3px; }
+    .mix .key { border: 0; background: none; padding: 0 3px; font: inherit; font-weight: 700; color: var(--c); border-radius: 4px; }
+    .mix .key.on { background: var(--accent-soft); }
+    .mix .side { padding: 0 2px 0 6px; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .04em; }
+    .mix .reset { border: 0; background: none; padding: 0 4px; font: inherit; color: var(--accent); }
+    #curves { position: absolute; left: 0; top: 0; z-index: 4; pointer-events: none; overflow: visible; }
+    #curves .hit { fill: none; stroke: transparent; stroke-width: 12; pointer-events: stroke; cursor: pointer; }
+    #curves .line { fill: none; pointer-events: none; stroke-linejoin: round; }
+    #curves .pt { stroke: #fff; stroke-width: 1.5; pointer-events: all; cursor: grab; }
+    #curves .pt.sel { stroke: var(--accent); stroke-width: 3; }
+    #curves .end { fill: rgba(0,0,0,.6); stroke-width: 2; pointer-events: all; cursor: grab; }
+    #curves .bend { fill: rgba(255,255,255,.55); pointer-events: all; cursor: ns-resize; }
+    #curves .tip { font: 600 11px system-ui, sans-serif; fill: #fff; paint-order: stroke; stroke: rgba(0,0,0,.75); stroke-width: 3px; pointer-events: none; }
+    .mix, .block .head { user-select: none; -webkit-user-select: none; }
+    .mix:hover { border-color: var(--accent); color: var(--text); }
+    .block {
+      position: absolute; height: var(--lane-h); border-radius: 6px; overflow: hidden;
+      background: var(--wave-bg); border: 1px solid #000; user-select: none; touch-action: none;
+    }
+    .block.dragging { z-index: 5; opacity: .85; box-shadow: 0 6px 18px rgba(0,0,0,.35); }
+    .block.first .head, .block.first canvas { cursor: pointer; }
+    .block.muted canvas { opacity: .3; }
+    .block .mute {
+      flex: none; border: 1px solid rgba(255,255,255,.25); background: none; color: #ddd; border-radius: 4px;
+      font-size: 10px; font-weight: 700; line-height: 14px; padding: 0 4px; cursor: pointer;
+    }
+    .block .mute.on { background: #e8336c; border-color: #e8336c; color: #fff; }
+    .block .num { cursor: grab; touch-action: none; flex: none; min-width: 1.6em; text-align: center; font-size: 11px; font-weight: 700; color: #111; background: #ddd; border-radius: 4px; line-height: 15px; }
+    .block.selected .num { background: var(--accent); color: #fff; }
+    .block .head {
+      height: 22px; padding: 0 8px; display: flex; align-items: center; gap: 8px; cursor: ew-resize;
+      font-size: 12px; color: #eee; background: rgba(255,255,255,.08); white-space: nowrap; overflow: hidden;
+    }
+    .block .head b { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+    .block canvas { display: block; width: 100%; height: calc(var(--lane-h) - 40px); cursor: ew-resize; }
+    .handle { position: absolute; top: 22px; bottom: 18px; width: 8px; cursor: ew-resize; z-index: 2; }
+    .block .info {
+      height: 18px; padding: 0 8px; display: flex; align-items: center; gap: 10px; overflow: hidden; white-space: nowrap;
+      font-size: 11px; color: #aaa; background: rgba(255,255,255,.05); font-variant-numeric: tabular-nums;
+    }
+    .block .info .eqtag { color: #ffd54a; }
+    .eqstack { position: absolute; left: 11px; top: 26px; display: flex; flex-direction: column; gap: 2px; z-index: 3; }
+    .eqbtn {
+      width: 17px; height: 17px; padding: 0; border-radius: 3px; border: 1px solid rgba(255,255,255,.35);
+      background: rgba(0,0,0,.55); color: #ddd; font-size: 9px; font-weight: 700; line-height: 15px; cursor: pointer;
+    }
+    .eqbtn.up { background: #2e7d4f; border-color: #6bcb8f; color: #fff; }
+    .eqbtn.down { background: #a8640b; border-color: #e2a03a; color: #fff; }
+    .eqbtn.kill { background: #c2253f; border-color: #ff5a76; color: #fff; }
+    .handle::after { content: ""; position: absolute; top: 50%; left: 3px; width: 2px; height: 22px; margin-top: -11px; border-radius: 1px; background: rgba(255,255,255,.4); }
+    .handle:hover, .handle.on { background: rgba(255,255,255,.25); }
+    .handle.left { left: 0; } .handle.right { right: 0; }
+    .empty { padding: 40px; text-align: center; color: var(--muted); }
+
+    .block.selected { outline: 2px solid var(--accent); outline-offset: 1px; }
+    .block .eqtag { flex: none; color: #ffd54a; font-size: 11px; }
+    #live { display: flex; gap: 8px; min-width: 0; flex: 2 1 auto; }
+    #live:empty { display: none; }
+    .strip {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 6px 8px; border: 1px solid var(--panel-border); border-radius: 6px;
+      background: var(--bg); font-size: 12px; cursor: pointer; min-width: 0; flex: 1 1 0; font-variant-numeric: tabular-nums;
+    }
+    .strip.selected { border-color: var(--accent); }
+    .strip b { min-width: 0; flex: 1 1 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .strip .num { flex: none; min-width: 1.6em; text-align: center; font-weight: 700; border-radius: 4px; background: var(--panel-border); }
+    .meter { display: flex; align-items: center; gap: 4px; color: var(--muted); white-space: nowrap; }
+    .meter i { display: block; width: 34px; height: 6px; border-radius: 3px; background: var(--panel-border); overflow: hidden; }
+    .meter i::after { content: ""; display: block; height: 100%; width: var(--w); background: var(--c, var(--accent)); }
+    .meter.cut { color: #e8336c; }
+    #help {
+      position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.45); z-index: 20;
+    }
+    #help[hidden] { display: none; }
+    #help .card { position: relative; background: var(--bg); border: 1px solid var(--panel-border); border-radius: 10px; padding: 16px 20px; max-width: 600px; max-height: 90vh; overflow: auto; }
+    #help h2 { margin: 0 0 8px; font-size: 15px; }
+    #help h3 { margin: 14px 0 4px; font-size: 13px; color: var(--muted); }
+    #help-close { position: absolute; top: 10px; right: 10px; }
+    #help table { border-collapse: collapse; font-size: 13px; }
+    #help td { padding: 3px 10px 3px 0; vertical-align: top; }
+    #help td:first-child { white-space: nowrap; }
+    kbd { border: 1px solid var(--panel-border); border-radius: 4px; padding: 0 5px; background: var(--panel); font: 12px ui-monospace, monospace; }
+    footer {
+      display: flex; align-items: center; gap: 14px; padding: 10px 16px; margin-top: 10px;
+      border-top: 1px solid var(--panel-border); background: var(--panel);
+    }
+    #toggle { flex: none; border: 0; width: 36px; height: 36px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 15px; }
+    #toggle.loading { background: conic-gradient(var(--accent) 0 30%, var(--accent-soft) 30%); animation: spin 0.9s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #toast {
+      position: fixed; left: 50%; bottom: 76px; transform: translateX(-50%); z-index: 30; max-width: calc(100vw - 32px);
+      background: var(--text); color: var(--bg); border-radius: 8px; padding: 8px 14px; font-size: 13px; box-shadow: 0 6px 18px rgba(0,0,0,.25);
+    }
+    #toast[hidden] { display: none; }
+    .toast-action { margin-left: 12px; border: 0; border-radius: 6px; padding: 2px 8px; background: var(--accent); color: #fff; font: inherit; font-weight: 600; }
+    #now { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #clock { font-variant-numeric: tabular-nums; color: var(--muted); }
+    #mix-count { flex: none; padding: 2px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+    #mix-count[hidden] { display: none; }
+    .hint { font-size: 12px; color: var(--muted); white-space: nowrap; }
+    @media (max-width: 1100px) { .hint { display: none; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="group"><h1>Seta 🍄 Arrange</h1><a id="tags-link" href="/tags">Tags</a></div>
+    <select id="playlist" title="Rekordbox playlist"></select>
+    <span id="info"></span>
+    <label class="toggle" title="Match tempo and line up downbeats in every mix (T)"><input id="sync" type="checkbox" checked /> Sync</label>
+    <label class="toggle" title="Play only the mixes: 8 bars before each one, then on to the next, hands free (X)"><input id="mixes-only" type="checkbox" /> Mixes only</label>
+    <div class="zoom" role="group" aria-label="Zoom">Zoom
+      <button class="btn small" id="zoom-out" title="Zoom out (−)">−</button>
+      <span id="zoom-level">1×</span>
+      <button class="btn small" id="zoom-in" title="Zoom in (+)">+</button>
+      <button class="btn small" id="zoom-fit" title="Fit the whole set (F)">Fit</button>
+    </div>
+    <div class="group">
+      <button class="btn small" id="undo" title="Undo (⌘Z)" disabled>↶</button>
+      <button class="btn small" id="redo" title="Redo (⇧⌘Z)" disabled>↷</button>
+      <button class="btn" id="reset" title="Back to the playlist order with full tracks (you can undo it)">Reset</button>
+      <button class="btn primary" id="export" title="Save a rekordbox XML to ~/Music/rekordbox/seta.xml (replacing the last export): the order, plus the mix points as memory cues (your own cues are kept)">Export XML</button>
+      <button class="btn small" id="help-btn" title="How it works and keyboard shortcuts (?)">?</button>
+    </div>
+  </header>
+
+  <div id="overview-wrap" title="The whole set · click to play from there">
+    <canvas id="overview"></canvas>
+    <div id="overview-view"></div>
+    <div class="playhead" id="overview-head"></div>
+  </div>
+  <div id="work">
+    <div id="timeline"><div id="lanes"><div class="empty">Loading…</div></div></div>
+  </div>
+
+  <div id="help" hidden>
+    <div class="card" role="dialog" aria-label="How Arrange works">
+      <button class="btn small" id="help-close" title="Close (Esc)">✕</button>
+      <h2>How Arrange works</h2>
+      <table>
+        <tr><td><b>Listen</b></td><td>Click any waveform (or the set waveform on top) to play from there.</td></tr>
+        <tr><td><b>Mix point</b></td><td>Drag a track left / right to change where it mixes into the one before. It snaps to phrases that line up (yellow lines); hold <kbd>Shift</kbd> for single bars.</td></tr>
+        <tr><td><b>Order</b></td><td>Drag a track's number badge to reorder.</td></tr>
+        <tr><td><b>Trim</b></td><td>Drag a track's left / right edge. It snaps to phrases; <kbd>Shift</kbd>: bars.</td></tr>
+        <tr><td><b>EQ</b></td><td><b>H M L</b> on a track: click to kill / restore a band, scroll for ±3 dB. <b>M</b> in the title mutes.</td></tr>
+        <tr><td><b>Export</b></td><td><b>Export XML</b> saves the order plus memory cues at each mix (Seta mix in, next in, bass swap, cut); your own cues are kept. It always goes to <code>~/Music/rekordbox/seta.xml</code>, replacing the last export (earlier ones stay in <code>seta-exports/</code>), and each export first backs up your rekordbox library into Seta's <code>rb_backups/</code>. Once in rekordbox: Preferences → Advanced → Database → rekordbox xml → pick that file. After each export, click ↻ on "rekordbox xml" in the tree, open the playlist, select its tracks → right-click → <b>Import To Collection</b> (say yes to overwrite): that brings the cues. Dragging the playlist only brings the order.</td></tr>
+        <tr><td><b>Warnings</b></td><td>On a mix label: ⚠ short (under 32 bars for similar tracks, 16 otherwise), ⚠ vocals (two voices audible at once; blue strips on the waveforms show rekordbox's vocal detection), ⚠ key (keys clash on the Camelot wheel), ⚠ energy (drop of 2+ stars), ⚠ % (tempo stretched over 5%). Hover a label for details.</td></tr>
+        <tr><td><b>Mix</b></td><td>Every mix blends by EQ, with a bass swap where the new track has bass. The red line is where the old track is cut.</td></tr>
+        <tr><td><b>Curves</b></td><td>Click a mix label (⇄ 16 bars) to zoom in. Vol, L, M, H lines for both tracks sit on their waveforms. Pick a line with the <b>Out</b> (old track) or <b>In</b> (new track) buttons on the mix label, or click it; drag its points (snap to bars; <kbd>Shift</kbd>: free), drag the hollow square at a line's start or end to change it there, double-click it to add a point, <kbd>Alt</kbd>+click or <kbd>Delete</kbd> removes one, drag the small dot between two points to bend. <b>↺ recipe</b> goes back to the default.</td></tr>
+      </table>
+      <h3>Keys</h3>
+      <table>
+        <tr><td><kbd>Space</kbd></td><td>Play / pause</td></tr>
+        <tr><td><kbd>Enter</kbd></td><td>Play from where the selected track mixes in</td></tr>
+        <tr><td><kbd>1</kbd>–<kbd>9</kbd> · <kbd>←</kbd> <kbd>→</kbd></td><td>Select a track (type two digits quickly for 10 and up)</td></tr>
+        <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>Mix in earlier / later (next phrase that lines up); <kbd>Shift</kbd>: 1 bar</td></tr>
+        <tr><td><kbd>Alt</kbd>+<kbd>←</kbd> <kbd>→</kbd></td><td>Move the selected track earlier / later in the set</td></tr>
+        <tr><td><kbd>,</kbd> <kbd>.</kbd> · <kbd>&lt;</kbd> <kbd>&gt;</kbd></td><td>Trim the start · the end, one phrase at a time</td></tr>
+        <tr><td><kbd>Q</kbd> <kbd>A</kbd> · <kbd>W</kbd> <kbd>S</kbd> · <kbd>E</kbd> <kbd>D</kbd></td><td>Low · Mid · High EQ up / down 3 dB; <kbd>R</kbd> resets the EQ</td></tr>
+        <tr><td><kbd>M</kbd></td><td>Mute / unmute the selected track</td></tr>
+        <tr><td><kbd>⌘Z</kbd> · <kbd>⇧⌘Z</kbd></td><td>Undo · redo</td></tr>
+        <tr><td><kbd>X</kbd> · <kbd>N</kbd> <kbd>P</kbd></td><td>Mixes only on / off (shows and plays only the mixes, from 8 bars before each, then jumps to the next) · next / previous mix</td></tr>
+        <tr><td><kbd>T</kbd> · <kbd>+</kbd> <kbd>−</kbd> <kbd>F</kbd></td><td>Sync on / off · zoom in / out / fit</td></tr>
+        <tr><td><kbd>?</kbd> · <kbd>Esc</kbd></td><td>Show / hide this card</td></tr>
+      </table>
+    </div>
+  </div>
+  <div id="toast" role="status" hidden></div>
+
+  <footer>
+    <button id="toggle" title="Play / pause (Space)">▶</button>
+    <div id="now">Click a waveform to listen · Space plays</div>
+    <div id="live" aria-live="off"></div>
+    <span id="mix-count" hidden></span>
+    <span id="clock">0:00 / 0:00</span>
+    <span class="hint">Drag a track to change its mix · click a mix label to edit its curves · drag edges to trim · <kbd>?</kbd> help</span>
+  </footer>
+
+
+  <script src="/static/rbWaveform.js"></script>
+  <script src="/static/tempoMap.js"></script>
+  <script src="/static/mixRecipe.js"></script>
+  <script src="/static/loudness.js"></script>
+  <script>
+    const LANE_TOP = 24;
+    const LANE_H = [110, 300]; // lanes grow with the window, within this range
+    const LANE_GAP = 10;
+    const MIN_LEN_MS = 20000;
+    const PHRASE_BARS = 16; // mixes are whole phrases: 16, 32, 48, 64 … bars
+    const MAX_BARS = 512;
+    const DEFAULT_BARS = 32; // a new mix starts 32 bars before A ends: real DJ mixes cluster at whole phrases, often long
+    const SEAMLESS_BARS = { similar: 32, different: 16 }; // shorter mixes are easier to notice (real DJ mixes, automatic-DJ listening tests)
+    const STRETCH_WARN = 0.05;
+    const VOCAL_LEVEL = 2; // rekordbox's vocal detection 0-4: from 2 on, a voice is there
+    const VOCAL_CLASH_SECONDS = 2; // two audible voices at once for this long gets flagged
+    const ENERGY_DROP_WARN = 2; // stars (= energy); a drop this big between two tracks gets flagged // 86% of tempo changes in real DJ mixes are under 5%; flag bigger ones
+    const STORE_KEY = "seta-arrange-v1";
+    const GLIDE_BARS = 16; // after a mix, a synced track glides back to its own tempo over 16 bars
+    const CUT_DB = -6; // a band at or below this shows red in the live strips
+    const B_HAS_BASS = 0.4; // B's low band at 40% of its loudest counts as "has bass" for the swap
+    const FLAT = { low: 0, mid: 0, high: 0 };
+    const $ = (id) => document.getElementById(id);
+
+    const state = {
+      tracks: new Map(),
+      playlists: [],
+      playlistId: null,
+      items: [], // [{id, inMs, outMs, muted, entry: {prevId, ms}}] in set order; entry = where this track starts in the previous one (legacy: mixBars)
+      waves: new Map(),
+      boxes: [],
+      total: 0,
+      playing: false,
+      t: 0,
+      sync: true,
+      mixesOnly: false, // play only the transitions
+      fit: 0.0003, // px per ms when the whole set fits the timeline
+      zoom: 1,
+      selected: null, // index of the selected track
+    };
+    const EQ_BANDS = ["low", "mid", "high"];
+    const EQ_MIN = -26;
+    const EQ_MAX = 6;
+    const EQ_STEP = 3;
+
+    // ---------- saved arrangements ----------
+    function loadStore() {
+      try { return JSON.parse(localStorage.getItem(STORE_KEY) || "{}"); } catch { return {}; }
+    }
+    // Arrangements are saved on this Mac (server, arrange_store.py) and, as a fallback, in this browser.
+    let serverSets = {};
+    let serverStamps = {};
+    // Same content regardless of key order (the server sorts keys).
+    const canon = (v) => JSON.stringify(v, (_, x) => (x && typeof x === "object" && !Array.isArray(x) ? Object.fromEntries(Object.entries(x).sort()) : x));
+    const stampOf = (id) => loadStore().stamps?.[id] || 0; // when this browser last changed a set (0: before stamps existed)
+    let pushTimer = 0;
+    let pushFailed = false;
+    function saveStore() {
+      try {
+        const store = loadStore();
+        store.playlistId = state.playlistId;
+        store.sync = state.sync;
+        store.mixesOnly = state.mixesOnly;
+        const changed = JSON.stringify(store.sets?.[state.playlistId]) !== JSON.stringify(state.items);
+        store.sets = { ...(store.sets || {}), [state.playlistId]: state.items };
+        if (changed) store.stamps = { ...(store.stamps || {}), [state.playlistId]: Date.now() };
+        localStorage.setItem(STORE_KEY, JSON.stringify(store));
+      } catch {}
+      clearTimeout(pushTimer);
+      pushTimer = setTimeout(pushSet, 400);
+    }
+    function pushSet(keepalive = false) {
+      pushTimer = 0;
+      const id = state.playlistId;
+      if (!id || canon(serverSets[id]) === canon(state.items)) return;
+      const items = JSON.parse(JSON.stringify(state.items));
+      fetch(`/api/arrange/sets/${encodeURIComponent(id)}`, {
+        method: "PUT", keepalive, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items, at: stampOf(id) || Date.now() }),
+      }).then((r) => {
+        if (!r.ok) throw new Error(String(r.status));
+        serverSets[id] = items;
+        serverStamps[id] = stampOf(id);
+        pushFailed = false;
+      }).catch(() => {
+        if (!pushFailed) toast("Could not save on the Mac; saved in this browser only for now");
+        pushFailed = true;
+      });
+    }
+    window.addEventListener("beforeunload", () => { if (pushTimer) { clearTimeout(pushTimer); pushSet(true); } });
+
+    // ---------- edits: every change goes through commit(), so it can be undone ----------
+    const undoHistory = { past: [], future: [], current: "[]" };
+    function resetHistory() {
+      undoHistory.past = [];
+      undoHistory.future = [];
+      undoHistory.current = JSON.stringify(state.items);
+      updateUndoButtons();
+    }
+    function commit() {
+      if (state.zoom === 1) fitZoom();
+      render();
+      const now = JSON.stringify(state.items);
+      if (now !== undoHistory.current) {
+        undoHistory.past.push(undoHistory.current);
+        if (undoHistory.past.length > 200) undoHistory.past.shift();
+        undoHistory.future = [];
+        undoHistory.current = now;
+      }
+      saveStore();
+      updateUndoButtons();
+    }
+    function undo(dir) {
+      const [from, to] = dir < 0 ? [undoHistory.past, undoHistory.future] : [undoHistory.future, undoHistory.past];
+      if (!from.length) { toast(dir < 0 ? "Nothing to undo" : "Nothing to redo"); return; }
+      to.push(undoHistory.current);
+      state.items = JSON.parse(from.pop());
+      if (state.selected !== null && state.selected >= state.items.length) state.selected = state.items.length - 1;
+      render();
+      undoHistory.current = JSON.stringify(state.items);
+      saveStore();
+      updateUndoButtons();
+      updateLive(true);
+      toast(dir < 0 ? "Undone" : "Redone");
+    }
+    function updateUndoButtons() {
+      $("undo").disabled = !undoHistory.past.length;
+      $("redo").disabled = !undoHistory.future.length;
+    }
+
+    let toastTimer = 0;
+    /** A short message at the bottom; `action` ({label, run}) adds a button and keeps it up longer. */
+    function toast(text, action) {
+      const el = $("toast");
+      el.textContent = text;
+      if (action) {
+        const button = Object.assign(document.createElement("button"), { type: "button", className: "toast-action", textContent: action.label });
+        button.onclick = () => { el.hidden = true; action.run(); };
+        el.append(button);
+      }
+      el.hidden = false;
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { el.hidden = true; }, action ? 10000 : 2600);
+    }
+
+    // ---------- layout ----------
+    const barMs = (bpm) => 240000 / bpm;
+
+    /** Where B starts, in ms of A's audio: saved for this exact A, else 16 bars before A ends. */
+    function entryPoint(item, prev) {
+      if (item.entry && item.entry.prevId === prev.it.id) return item.entry.ms;
+      const target = prev.outMs - phraseBars(item.mixBars || DEFAULT_BARS) * barMs(prev.bpm);
+      // Default: the phrase start at or before that point, so a fresh mix is at least a full phrase.
+      const before = phrasesOf(prev.wave).filter((d) => d <= target && d >= prev.inMs);
+      return before.length ? before[before.length - 1] : target;
+    }
+
+    function nearest(values, ms) {
+      let best = null;
+      for (const v of values) if (best === null || Math.abs(v - ms) < Math.abs(best - ms)) best = v;
+      return best ?? ms;
+    }
+
+    /** Phrase starts of a track in audio ms: Rekordbox's phrase analysis, else every 16 bars from the first downbeat. */
+    function phrasesOf(wave) {
+      if (!wave) return [];
+      if (wave._phrases) return wave._phrases;
+      const marked = (wave.phrases || []).map((p) => p.ms);
+      const downs = wave.downbeats || [];
+      wave._phrases = marked.length ? marked : downs.filter((_, i) => i % PHRASE_BARS === 0);
+      return wave._phrases;
+    }
+
+    /**
+     * Every entry point in A (audio ms) where some phrase of B lands on some phrase of A:
+     * B's start on an A phrase, but also B's drop on A's drop. While mixing, B runs at A's
+     * tempo, so B's audio offsets scale by B BPM / A BPM.
+     */
+    function alignments(prev, box) {
+      const ratio = box.bpm / prev.bpm;
+      const aPhrases = phrasesOf(prev.wave).filter((a) => a >= prev.inMs && a <= prev.outMs);
+      const bPhrases = phrasesOf(box.wave).filter((b) => b >= box.inMs && b <= box.outMs);
+      const lo = prev.inMs + barMs(prev.bpm);
+      const found = [];
+      for (const a of aPhrases) {
+        for (const b of bPhrases) {
+          const entry = a - (b - box.inMs) * ratio;
+          if (entry >= lo && entry <= prev.outMs) found.push(entry);
+        }
+      }
+      found.sort((x, y) => x - y);
+      return found.filter((v, i) => !i || v - found[i - 1] > 200);
+    }
+
+    /** The next alignment before (dir -1) or after (dir +1) the current entry. */
+    /** Phrase alignments of track i into the previous track, snapped to bars of A when synced. */
+    function alignmentOptions(i) {
+      const prev = state.boxes[i - 1];
+      const box = state.boxes[i];
+      // With Sync the entry snaps to a bar of A, so offer bars that differ from each other.
+      // Keep only alignments that sit on a bar (phrases that start mid-bar would not really line up).
+      const onBar = (v) => !state.sync || !prev.downs.length || Math.abs(nearest(prev.downs, v) - v) < 150;
+      const earliest = earliestEntry(prev, state.boxes[i - 2]);
+      const snapped = alignments(prev, box).filter(onBar).map((v) => (state.sync ? nearest(prev.downs, v) : v)).filter((v) => v >= earliest - 1);
+      return [...new Set(snapped)].sort((x, y) => x - y);
+    }
+
+    /** Where a dragged track lands: a phrase alignment within 1.5 bars, else the nearest bar (Shift: always the bar). */
+    function slideTarget(i, ms, barsOnly) {
+      const prev = state.boxes[i - 1];
+      const bar = prev.downs.length ? nearest(prev.downs, ms) : ms;
+      if (barsOnly) return bar;
+      const magnet = nearest(alignmentOptions(i), ms);
+      return Math.abs(magnet - ms) <= 1.5 * barMs(prev.bpm) ? magnet : bar;
+    }
+
+    function stepAlignment(i, dir) {
+      const box = state.boxes[i];
+      const options = alignmentOptions(i);
+      const current = box.entryMs;
+      const next = dir < 0 ? options.filter((v) => v < current - 100).pop() : options.find((v) => v > current + 100);
+      if (next !== undefined) setEntry(i, next);
+    }
+
+    /** Move the entry by whole bars of A (fine-tuning). */
+    function stepBars(i, bars) {
+      const prev = state.boxes[i - 1];
+      setEntry(i, state.boxes[i].entryMs + bars * barMs(prev.bpm));
+    }
+
+    /** The earliest entry (ms of A's audio) that keeps at most two tracks playing: after the track before A has ended. */
+    function earliestEntry(prev, beforePrev) {
+      if (!beforePrev) return -Infinity;
+      return prev.inMs + prev.map.audioAt(beforePrev.end - prev.start);
+    }
+
+    function layout() {
+      const sync = state.sync;
+      let prev = null;
+      let before = null;
+      state.boxes = state.items.map((it, i) => {
+        const wave = state.waves.get(it.id);
+        const dur = wave?.duration_ms || 300000;
+        const bpm = state.tracks.get(it.id)?.bpm || 120;
+        const downs = wave?.downbeats || [];
+        const minLen = Math.min(MIN_LEN_MS, dur);
+        let inMs = Math.max(0, Math.min(it.inMs ?? 0, dur - minLen));
+        // Synced mixes start on a phrase of the incoming track…
+        if (sync && prev) inMs = Math.max(0, Math.min(TempoMap.downbeatFrom(phrasesOf(wave), inMs), dur - minLen));
+        const outMs = Math.max(inMs + minLen, Math.min(it.outMs ?? dur, dur));
+        const len = outMs - inMs;
+        let start = 0;
+        let overlap = 0;
+        let entryMs = null;
+        let enterTempo = bpm;
+        if (prev) {
+          // B enters at a fixed point of A's music, so trimming A's end only shortens the mix.
+          entryMs = Math.max(prev.inMs, Math.min(entryPoint(it, prev), prev.outMs));
+          // …on a bar of the outgoing track (the chip steps through phrase alignments).
+          if (sync) entryMs = Math.min(prev.outMs, Math.max(prev.inMs, nearest(prev.downs, entryMs)));
+          // Two decks: a track cannot come in before the one two places back has ended.
+          const earliest = earliestEntry(prev, before);
+          if (entryMs < earliest) entryMs = Math.min(prev.outMs, sync ? TempoMap.downbeatFrom(prev.downs, earliest) : earliest);
+          // Remember the point, so later trims of A leave B where it is.
+          if (!(it.entry && it.entry.prevId === prev.it.id)) it.entry = { prevId: prev.it.id, ms: entryMs };
+          start = Math.min(prev.end, prev.start + prev.map.setTimeAt(entryMs - prev.inMs));
+          overlap = prev.end - start;
+          if (sync) enterTempo = prev.bpm * prev.map.rateAt(start - prev.start);
+        }
+        const glideMs = (GLIDE_BARS * 4 * 60000) / bpm;
+        const map = TempoMap.tempoMap({ audioMs: len, startRate: sync ? enterTempo / bpm : 1, holdMs: overlap, glideMs });
+        before = prev;
+        prev = { it, i, wave, dur, bpm, downs, inMs, outMs, len, map, glideMs, duration: map.duration, start, end: start + map.duration, overlap, entryMs, enterTempo, lane: i % 2 };
+        return prev;
+      });
+      state.total = state.boxes.length ? Math.max(...state.boxes.map((b) => b.end)) : 0;
+      markAlignedPhrases();
+      markBassSwaps();
+    }
+
+    // For each mix: the bar (from B's start) where B's bass comes in, after the EQ blend.
+    function markBassSwaps() {
+      for (let i = 1; i < state.boxes.length; i += 1) {
+        const a = state.boxes[i - 1];
+        const b = state.boxes[i];
+        const bar = barMs(b.enterTempo);
+        const audioAt = (setMs) => b.inMs + b.map.audioAt(setMs);
+        b.swapBar = b.wave
+          ? MixRecipe.swapBar((a.end - b.start) / bar, (k) => RbWaveform.bandLevel(b.wave, audioAt(k * bar), audioAt((k + 1) * bar), "low") >= B_HAS_BASS)
+          : null;
+      }
+    }
+
+    // Phrase lines of A and B that fall on the same moment of the set get highlighted.
+    function markAlignedPhrases() {
+      const at = (box, ms) => box.start + box.map.setTimeAt(ms - box.inMs);
+      for (const box of state.boxes) box.aligned = new Set();
+      for (let i = 1; i < state.boxes.length; i += 1) {
+        const a = state.boxes[i - 1];
+        const b = state.boxes[i];
+        const bTimes = phrasesOf(b.wave).filter((p) => p >= b.inMs && p <= b.outMs).map((p) => [p, at(b, p)]);
+        let count = 0;
+        for (const p of phrasesOf(a.wave)) {
+          if (p < a.inMs || p > a.outMs) continue;
+          const t = at(a, p);
+          const hit = bTimes.find(([, bt]) => Math.abs(bt - t) < 150);
+          if (hit && t >= b.start && t <= a.end) { a.aligned.add(p); b.aligned.add(hit[0]); count += 1; }
+        }
+        b.alignedCount = count;
+      }
+    }
+
+    const trackOf = (box) => state.tracks.get(box.it.id);
+
+    // ---------- vocals: rekordbox's own AI vocal detection (PVDI, see rb_waveform.py) ----------
+    function vocalAt(wave, ms) {
+      const v = wave?.vocals;
+      if (!v) return 0;
+      if (!wave._vocalLevels) wave._vocalLevels = RbWaveform.decode(v.levels);
+      return wave._vocalLevels[Math.floor(ms / v.step_ms)] || 0;
+    }
+    const audioMsAt = (box, t) => box.inMs + box.map.audioAt(t - box.start);
+
+    /** Where both tracks of the mix into `inc` have an audible voice: {seconds, fromBar, toBar}, or null. */
+    function vocalClash(inc) {
+      const out = state.boxes[inc.i - 1];
+      if (!inc.wave?.vocals || !out.wave?.vocals || inc.overlap <= 0) return null;
+      const { lines, bar } = mixLines(inc);
+      const level = (key, b) => MixRecipe.valueAt(lines[key], b);
+      const end = Math.min(out.end, cutTime(out) ?? out.end);
+      const STEP = 250;
+      let count = 0;
+      let first = null;
+      let last = null;
+      for (let t = inc.start; t < end; t += STEP) {
+        const b = (t - inc.start) / bar;
+        const audible = (side) => level(`${side}.volume`, b) > 0.05 && level(`${side}.mid`, b) >= 0.3; // voices live in the mids
+        if (audible("out") && audible("inc") && vocalAt(out.wave, audioMsAt(out, t)) >= VOCAL_LEVEL && vocalAt(inc.wave, audioMsAt(inc, t)) >= VOCAL_LEVEL) {
+          count += 1;
+          first ??= b;
+          last = b;
+        }
+      }
+      const seconds = (count * STEP) / 1000;
+      return seconds >= VOCAL_CLASH_SECONDS ? { seconds, fromBar: Math.floor(first) + 1, toBar: Math.floor(last) + 1 } : null;
+    }
+
+    // A thin blue strip on top of the waveform where rekordbox hears a voice (like rekordbox's own display).
+    function drawVocals(canvas, box, from, to) {
+      if (!box.wave?.vocals) return;
+      const ctx = canvas.getContext("2d");
+      const width = canvas.clientWidth;
+      for (let x = 0; x < width; x += 2) {
+        const level = vocalAt(box.wave, audioMsAt(box, from + ((x + 1) / width) * (to - from)));
+        if (level < VOCAL_LEVEL) continue;
+        ctx.fillStyle = `rgba(63,169,245,${0.35 + (level / 4) * 0.65})`;
+        ctx.fillRect(x, 0, 2, 4);
+      }
+    }
+
+    /** Camelot keys that mix well: the same key, one step around the wheel, or the relative major / minor. */
+    function keysCompatible(a, b) {
+      const parse = (k) => /^(\d{1,2})([AB])$/i.exec(k || "");
+      const x = parse(a);
+      const y = parse(b);
+      if (!x || !y) return false;
+      const step = Math.abs(Number(x[1]) - Number(y[1])) % 12;
+      const sameLetter = x[2].toUpperCase() === y[2].toUpperCase();
+      return (sameLetter && (step <= 1 || step === 11)) || (!sameLetter && step === 0);
+    }
+
+    // Zoom is a step above "whole set fits the screen" (1×), up to 8×.
+    const ZOOMS = [1, 1.5, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64];
+    const pxPerMs = () => state.fit * state.zoom;
+
+    // What the timeline shows: the whole set, or with Mixes only just the mix windows side by side,
+    // with a narrow gap for each skipped stretch. timeX / xTime convert between set time and pixels.
+    const GAP_PX = 56;
+    let spans = [{ from: 0, to: 0 }];
+    function updateSpans() {
+      spans = state.mixesOnly && mixWindows().length ? mixWindows() : [{ from: 0, to: state.total }];
+    }
+    function timeX(t) {
+      const px = pxPerMs();
+      let x = 0;
+      for (const [k, w] of spans.entries()) {
+        if (t < w.from) return k ? x - GAP_PX / 2 : x;
+        if (t <= w.to) return x + (t - w.from) * px;
+        x += (w.to - w.from) * px + GAP_PX;
+      }
+      return x - GAP_PX;
+    }
+    function xTime(x) {
+      const px = pxPerMs();
+      let left = 0;
+      for (const [k, w] of spans.entries()) {
+        const right = left + (w.to - w.from) * px;
+        if (x <= right || k === spans.length - 1) return Math.max(w.from, Math.min(w.to, w.from + (x - left) / px));
+        if (x < right + GAP_PX) return x < right + GAP_PX / 2 ? w.to : spans[k + 1].from;
+        left = right + GAP_PX;
+      }
+      return 0;
+    }
+    const fmt = (ms) => {
+      const s = Math.max(0, Math.floor(ms / 1000));
+      const h = Math.floor(s / 3600);
+      const m = Math.floor((s % 3600) / 60);
+      const r = String(s % 60).padStart(2, "0");
+      return h ? `${h}:${String(m).padStart(2, "0")}:${r}` : `${m}:${r}`;
+    };
+
+    // ---------- rendering ----------
+    function render() {
+      layout();
+      updateSpans();
+      const lanes = $("lanes");
+      const px = pxPerMs();
+      lanes.style.width = `${Math.max(timeX(state.total) + 40, $("timeline").clientWidth - 2)}px`;
+      // Two lanes plus the mix labels, the gap, the ruler and a scrollbar fill the timeline's height.
+      const laneH = Math.max(LANE_H[0], Math.min(LANE_H[1], Math.floor(($("timeline").clientHeight - LANE_TOP - LANE_GAP - 52) / 2)));
+      lanes.style.setProperty("--lane-h", `${laneH}px`);
+      state.laneH = laneH;
+      lanes.innerHTML = state.boxes.length ? `<div class="playhead" id="lane-playhead"></div>` : `<div class="empty">No track in this playlist has a Rekordbox waveform yet. Analyze it in Rekordbox, then reload.</div>`;
+      if (state.boxes.length) drawRuler(lanes, px);
+      for (const box of state.boxes) {
+        // One piece per visible stretch of the track (all of it, unless Mixes only hides parts).
+        const pieces = spans.map((w) => [Math.max(box.start, w.from), Math.min(box.end, w.to)]).filter(([a, b]) => b > a);
+        for (const [from, to] of pieces) renderPiece(lanes, box, from, to, laneH);
+        if (box.i > 0) {
+          const chip = document.createElement("div");
+          chip.className = "mix";
+          chip.dataset.index = box.i;
+          const bars = Math.max(0, Math.round(box.overlap / barMs(box.enterTempo)));
+          const stretch = state.sync ? box.map.rateAt(0) - 1 : 0;
+          const tempoWarn = Math.abs(stretch) > STRETCH_WARN;
+          const [keyA, keyB] = [trackOf(state.boxes[box.i - 1])?.key, trackOf(box)?.key];
+          const keysMatch = keysCompatible(keyA, keyB);
+          const keyWarn = Boolean(keyA && keyB && !keysMatch);
+          const energyDrop = (trackOf(state.boxes[box.i - 1])?.energy || 0) - (trackOf(box)?.energy || 0);
+          const energyWarn = Boolean(trackOf(box)?.energy && energyDrop >= ENERGY_DROP_WARN);
+          const similar = keysMatch && Math.abs(box.bpm / state.boxes[box.i - 1].bpm - 1) <= 0.03;
+          const needed = SEAMLESS_BARS[similar ? "similar" : "different"];
+          const shortWarn = bars > 0 && bars < needed; // 0 bars is a deliberate cut
+          const clash = vocalClash(box);
+          const warn = (shortWarn ? " ⚠ short" : "") + (clash ? " ⚠ vocals" : "") + (keyWarn ? " ⚠ key" : "") + (energyWarn ? ` ⚠ energy −${energyDrop}` : "") + (tempoWarn ? ` ⚠ ${stretch > 0 ? "+" : "−"}${Math.round(Math.abs(stretch) * 100)}%` : "");
+          const label = Object.assign(document.createElement("span"), { className: "label", textContent: (bars ? `⇄ ${bars} bars` : "cut, no mix") + warn });
+          if (warn) chip.classList.add("warn");
+          label.dataset.short = `${bars}${warn ? " ⚠" : ""}`;
+          label.title = `${clash ? `Vocals overlap for about ${Math.round(clash.seconds)} s (bars ${clash.fromBar}–${clash.toBar}), going by rekordbox's vocal detection (blue strips). Two voices at once are the most noticed transition mistake: move the mix, or cut one track's mids there. ` : ""}${keyWarn ? `Keys ${keyA} → ${keyB} do not match on the Camelot wheel, so the blend may sound off-key. Mixes work best in the same key, one step around the wheel, or the paired major / minor. ` : ""}${energyWarn ? `Energy drops ${energyDrop} stars (${"★".repeat(trackOf(state.boxes[box.i - 1]).energy)} → ${"★".repeat(trackOf(box).energy)}); fine for a breather, otherwise the floor may notice. ` : ""}${shortWarn ? `Short mix: ${bars} bars. For ${similar ? "similar tracks (matching key and tempo) aim for 32 bars or more" : "tracks this different aim for at least 16 bars"}, so the change is hard to notice. ` : ""}${tempoWarn ? `Tempo changes by ${Math.round(Math.abs(stretch) * 100)}% in this mix; DJs rarely go past 5%, so it may sound stretched. ` : ""}Mix into this track: ${fmt(box.overlap)}. ${box.swapBar === null ? "No bass swap: this track has no bass during the mix." : `Bass swap at bar ${box.swapBar + 1}.`} ${(() => { const e = MixRecipe.exitBars(box.overlap / barMs(box.enterTempo), box.swapBar); return `The previous track steps out from bar ${e.start + 1} and is cut at bar ${e.cut + 1} (red line).`; })()} ${box.alignedCount ? `${box.alignedCount} phrase${box.alignedCount === 1 ? "" : "s"} lined up (yellow).` : "No phrases lined up."} Drag the track to change it ([ ] keys step through alignments). ${mixLines(box).edited ? "Curves edited by hand." : "Click to see and edit its curves."}`;
+          chip.append(label);
+          if (box.i === state.selected && box.overlap > 0) { chip.classList.add("editing"); chip.append(...curveTools(box)); }
+          chip.style.left = `${timeX(box.start + box.overlap / 2)}px`;
+          lanes.append(chip);
+        }
+      }
+      // Mix labels that would overlap shrink to just the number.
+      let right = -Infinity;
+      for (const chip of lanes.querySelectorAll(".mix")) {
+        const center = chip.offsetLeft;
+        if (center - chip.offsetWidth / 2 < right + 4) {
+          chip.classList.add("compact");
+          chip.firstChild.textContent = chip.firstChild.dataset.short;
+        }
+        right = center + chip.offsetWidth / 2;
+      }
+      drawCurves();
+      drawOverview();
+      updateOverviewView();
+      const name = state.playlists.find((p) => p.id === state.playlistId)?.name || "";
+      $("info").textContent = state.boxes.length ? `${state.boxes.length} tracks · ${fmt(state.total)}` : "";
+      document.title = name ? `${name} · Seta Arrange` : "Seta Arrange";
+      updateClock();
+    }
+
+    // One block on the timeline: track `box` from set time `from` to `to`.
+    function renderPiece(lanes, box, from, to, laneH) {
+      const track = state.tracks.get(box.it.id) || {};
+      const block = document.createElement("div");
+      block.className = box.i ? "block" : "block first";
+      Object.assign(block.dataset, { index: box.i, from, to });
+      Object.assign(block.style, {
+        left: `${timeX(from)}px`,
+        top: `${LANE_TOP + box.lane * (laneH + LANE_GAP)}px`,
+        width: `${Math.max(24, timeX(to) - timeX(from))}px`,
+      });
+      const head = document.createElement("div");
+      head.className = "head";
+      head.title = `${track.title || ""} — ${track.artist || ""}\n${box.i ? "Drag to change where it mixes in · click to select" : "Click to select"}`;
+      const title = document.createElement("b");
+      title.textContent = track.title || box.it.id;
+      // Secondary details go on a line under the waveform, so the title gets the top bar.
+      const info = Object.assign(document.createElement("div"), { className: "info" });
+      const tempo = state.sync && box.i > 0 && Math.abs(box.map.rateAt(0) - 1) > 0.002 ? ` → ${Math.round(box.bpm * box.map.rateAt(0))} in mix` : "";
+      const details = [track.bpm && `${Math.round(track.bpm)} BPM${tempo}`, track.key, fmt(box.duration), track.artist].filter(Boolean);
+      for (const text of details) info.append(Object.assign(document.createElement("span"), { textContent: text }));
+      if (eqSummary(box.it)) info.append(Object.assign(document.createElement("span"), { className: "eqtag", textContent: `EQ ${eqSummary(box.it)}` }));
+      const mute = Object.assign(document.createElement("button"), { className: `mute${box.it.muted ? " on" : ""}`, textContent: "M", type: "button" });
+      mute.title = box.it.muted ? "Unmute this track" : "Mute this track (the other track in a mix plays alone)";
+      if (box.it.muted) block.classList.add("muted");
+      if (box.i === state.selected) block.classList.add("selected");
+      const num = Object.assign(document.createElement("span"), { className: "num", textContent: box.i + 1, title: `Drag to reorder · press ${box.i + 1} to select` });
+      head.append(num, mute, title);
+      const canvas = document.createElement("canvas");
+      const stack = Object.assign(document.createElement("div"), { className: "eqstack" });
+      const eq = eqOf(box.it);
+      for (const band of ["high", "mid", "low"]) {
+        const v = eq[band];
+        const btn = Object.assign(document.createElement("button"), {
+          type: "button",
+          className: `eqbtn${v <= EQ_MIN ? " kill" : v > 0 ? " up" : v < 0 ? " down" : ""}`,
+          textContent: band[0].toUpperCase(),
+          title: `${band[0].toUpperCase()}${band.slice(1)} ${dB(v)} · click: ${v <= EQ_MIN ? "restore" : "kill"} · scroll: ±${EQ_STEP} dB`,
+        });
+        btn.dataset.band = band;
+        stack.append(btn);
+      }
+      block.append(head, canvas, info, stack);
+      // Trim handles only where the track really starts / ends.
+      if (from === box.start) block.append(handle("left"));
+      if (to === box.end) block.append(handle("right"));
+      lanes.append(block);
+      RbWaveform.draw(canvas, box.wave, warp(box, from, to));
+      drawPhraseLines(canvas, box, from, to);
+      drawVocals(canvas, box, from, to);
+      shadeAfterCut(canvas, box, from, to);
+    }
+
+    // Time ruler under the lanes, one label every 10 s … 10 min depending on zoom.
+    function drawRuler(lanes, px) {
+      const step = [10, 15, 30, 60, 120, 300, 600].map((s) => s * 1000).find((ms) => ms * px >= 70) || 600000;
+      spans.forEach((w, k) => {
+        for (let ms = Math.ceil(w.from / step) * step; ms <= w.to; ms += step) {
+          lanes.append(Object.assign(document.createElement("div"), { className: "tick", textContent: fmt(ms), style: `left:${timeX(ms)}px` }));
+        }
+        const next = spans[k + 1];
+        if (next) {
+          const gap = Object.assign(document.createElement("div"), { className: "skip", textContent: `skip\n${fmt(next.from - w.to)}`, title: `${fmt(next.from - w.to)} of the set skipped (Mixes only)` });
+          gap.style.left = `${timeX(w.to)}px`;
+          lanes.append(gap);
+        }
+      });
+    }
+
+    // The part of the set the timeline shows, as a frame on the set waveform.
+    function updateOverviewView() {
+      const view = $("overview-view");
+      const timeline = $("timeline");
+      if (!state.total || timeX(state.total) <= timeline.clientWidth) { view.style.display = "none"; return; }
+      const from = xTime(timeline.scrollLeft);
+      const to = xTime(timeline.scrollLeft + timeline.clientWidth);
+      view.style.display = "block";
+      view.style.left = `${(from / state.total) * 100}%`;
+      view.style.width = `${Math.max(0.5, ((to - from) / state.total) * 100)}%`;
+    }
+
+    // A block is drawn in set time: while a synced track runs at another tempo, its audio is squeezed or stretched.
+    // `from` / `to` (set time) pick a piece of the block; the default is all of it.
+    const warp = (box, from = box.start, to = box.end) => ({
+      startMs: box.inMs + box.map.audioAt(from - box.start),
+      endMs: box.inMs + box.map.audioAt(to - box.start),
+      timeAt: (f) => box.inMs + box.map.audioAt(from - box.start + f * (to - from)),
+      fractionAt: (ms) => (box.start + box.map.setTimeAt(ms - box.inMs) - from) / (to - from),
+    });
+
+    // Thin marks where each phrase starts, so phrase-aligned mixes are easy to see.
+    function drawPhraseLines(canvas, box, from, to) {
+      const ctx = canvas.getContext("2d");
+      const width = canvas.clientWidth;
+      for (const ms of phrasesOf(box.wave)) {
+        if (ms < box.inMs || ms > box.outMs) continue;
+        const lined = box.aligned?.has(ms);
+        ctx.fillStyle = lined ? "#ffd54a" : "rgba(255,255,255,.28)";
+        const x = Math.round(((box.start + box.map.setTimeAt(ms - box.inMs) - from) / (to - from)) * width);
+        if (x < 0 || x > width) continue;
+        ctx.fillRect(lined ? x - 1 : x, 0, lined ? 2 : 1, canvas.clientHeight);
+      }
+    }
+
+    // Dim the part of A that plays after the mix has taken it out (its fader cut).
+    function cutTime(box) {
+      const next = state.boxes[box.i + 1];
+      if (!next) return null;
+      const { lines, bar } = mixLines(next);
+      const silent = MixRecipe.silentFrom(lines["out.volume"]);
+      return silent === null ? null : next.start + silent * bar;
+    }
+    function shadeAfterCut(canvas, box, from, to) {
+      const t = cutTime(box);
+      if (t === null || t >= box.end || t >= to) return;
+      const width = canvas.clientWidth;
+      const x = Math.max(0, ((t - from) / (to - from)) * width);
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "rgba(0,0,0,.62)";
+      ctx.fillRect(x, 0, width - x, canvas.clientHeight);
+      ctx.fillStyle = "#e8336c";
+      ctx.fillRect(Math.round(x), 0, 2, canvas.clientHeight);
+    }
+
+    function handle(side) {
+      const el = document.createElement("div");
+      el.className = `handle ${side}`;
+      el.dataset.side = side;
+      el.title = side === "left" ? "Drag to set where this track starts" : "Drag to set where this track ends";
+      return el;
+    }
+
+    function drawOverview() {
+      const canvas = $("overview");
+      const { ctx, width, height } = RbWaveform.prepare(canvas);
+      if (!state.total) return;
+      for (const box of state.boxes) {
+        if (!box.wave) continue;
+        const x = (box.start / state.total) * width;
+        const w = (box.duration / state.total) * width;
+        ctx.globalAlpha = box.lane ? 0.75 : 1;
+        RbWaveform.paint(ctx, box.wave, { x, y: 0, w, h: height }, { ...warp(box), cues: false });
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = "rgba(255,255,255,.35)";
+        ctx.fillRect(Math.round(x), 0, 1, height);
+      }
+      drawEnergyLine(ctx, width, height);
+      if (!state.mixesOnly) return;
+      ctx.fillStyle = "rgba(0,0,0,.6)";
+      let from = 0;
+      for (const w of [...mixWindows(), { from: state.total, to: state.total }]) {
+        ctx.fillRect((from / state.total) * width, 0, ((w.from - from) / state.total) * width, height);
+        from = w.to;
+      }
+    }
+
+    // Energy (Rekordbox stars) across the set, as a line on the set waveform; changes in the middle of each mix.
+    function drawEnergyLine(ctx, width, height) {
+      const stars = state.boxes.map((b) => trackOf(b)?.energy || 0);
+      if (!stars.some(Boolean)) return;
+      const y = (n) => height - 6 - (n / 5) * (height - 12);
+      const x = (t) => (t / state.total) * width;
+      ctx.beginPath();
+      state.boxes.forEach((box, k) => {
+        const next = state.boxes[k + 1];
+        const from = k ? box.start + box.overlap / 2 : 0;
+        const to = next ? next.start + next.overlap / 2 : state.total;
+        if (k === 0) ctx.moveTo(x(from), y(stars[k]));
+        else ctx.lineTo(x(from), y(stars[k]));
+        ctx.lineTo(x(to), y(stars[k]));
+      });
+      ctx.lineJoin = "round";
+      ctx.strokeStyle = "rgba(0,0,0,.7)";
+      ctx.lineWidth = 4;
+      ctx.stroke();
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    // ---------- Mixes only: listen to the transitions, hands free ----------
+    const PRE_BARS = 8; // play this much of the outgoing track before the next one comes in
+    const POST_BARS = 4; // and this much after the outgoing track is cut
+
+    /** Set-time windows around every mix, merged where they touch: [{from, to, mixes: [i…]}]. */
+    function mixWindows() {
+      if (state.boxes._windows) return state.boxes._windows;
+      const windows = [];
+      for (const inc of state.boxes.slice(1)) {
+        const out = state.boxes[inc.i - 1];
+        const bar = barMs(inc.enterTempo);
+        const from = Math.max(0, inc.start - PRE_BARS * bar);
+        const to = Math.min(state.total, Math.max(inc.start, cutTime(out) ?? out.end) + POST_BARS * bar);
+        const last = windows[windows.length - 1];
+        if (last && from <= last.to) { last.to = Math.max(last.to, to); last.mixes.push(inc.i); }
+        else windows.push({ from, to, mixes: [inc.i] });
+      }
+      state.boxes._windows = windows;
+      return windows;
+    }
+    const mixAt = (t) => mixWindows().find((w) => t >= w.from - 50 && t < w.to);
+    /** Where Mixes only plays from for set time t: t inside a mix, else the next mix (or the first). */
+    function mixStart(t) {
+      if (mixAt(t)) return t;
+      const windows = mixWindows();
+      return (windows.find((w) => w.from > t) || windows[0])?.from ?? t;
+    }
+    function jumpMix(dir) {
+      const windows = mixWindows();
+      if (!windows.length) { toast("This set has no mixes yet"); return; }
+      const here = windows.findIndex((w) => state.t >= w.from - 50 && state.t < w.to);
+      const next = here < 0 ? (dir > 0 ? windows.findIndex((w) => w.from > state.t) : windows.findLastIndex((w) => w.to <= state.t)) : here + dir;
+      const w = windows[Math.max(0, Math.min(windows.length - 1, next < 0 ? (dir > 0 ? windows.length - 1 : 0) : next))];
+      seek(w.from);
+      showMix(w);
+    }
+
+    /** Bring a mix on screen with its curves: select its track and let the timeline follow the playhead. */
+    function showMix(w) {
+      userScrollAt = 0;
+      if (!w.mixes.includes(state.selected)) selectTrack(w.mixes[0]);
+      followPlayhead();
+    }
+
+    // ---------- mix curves: volume, low, mid, high of both tracks, editable on the selected mix ----------
+    const SVG_NS = "http://www.w3.org/2000/svg";
+    const LINE_KEYS = ["volume", "low", "mid", "high"];
+    const LINE_STYLE = { volume: ["Vol", "#ffffff"], low: ["L", "#ff6b6b"], mid: ["M", "#5ee08a"], high: ["H", "#5dade2"] };
+    const curveEdit = { key: "inc.mid", point: null }; // the line being edited, and its last clicked point
+
+    /** The 8 lines of the mix into box `inc` (edited ones from the item, the rest from the recipe). */
+    function mixLines(inc) {
+      const out = state.boxes[inc.i - 1];
+      const bar = barMs(inc.enterTempo);
+      const total = Math.max(0, (out.end - inc.start) / bar);
+      const custom = inc.it.curves?.prevId === out.it.id ? inc.it.curves.lines : {};
+      if (!inc._recipe) {
+        inc._recipe = {};
+        for (const side of ["inc", "out"]) for (const key of LINE_KEYS) inc._recipe[`${side}.${key}`] = MixRecipe.recipeLine(total, inc.swapBar, side, key);
+      }
+      const lines = {};
+      for (const k of Object.keys(inc._recipe)) lines[k] = custom[k] || inc._recipe[k];
+      return { lines, bar, total, edited: Object.keys(custom).length > 0 };
+    }
+
+    /** The points of one line, copied into the item the first time it is edited. */
+    function editableLine(inc, key) {
+      const out = state.boxes[inc.i - 1];
+      if (inc.it.curves?.prevId !== out.it.id) inc.it.curves = { prevId: out.it.id, lines: {} };
+      const lines = inc.it.curves.lines;
+      if (!lines[key]) lines[key] = mixLines(inc).lines[key].map((p) => ({ ...p }));
+      return lines[key];
+    }
+
+    // Two groups on the mix label: Out = how the previous track leaves, In = how this one comes in.
+    function curveTools(box) {
+      const tools = [];
+      for (const [side, name, who] of [["out", "Out", `track ${box.i}, leaving`], ["inc", "In", `track ${box.i + 1}, coming in`]]) {
+        tools.push(Object.assign(document.createElement("span"), { className: "side", textContent: name }));
+        for (const key of LINE_KEYS) {
+          const [label, color] = LINE_STYLE[key];
+          const b = Object.assign(document.createElement("button"), { type: "button", className: `key${curveEdit.key === `${side}.${key}` ? " on" : ""}`, textContent: label, title: `Edit the ${key} line of ${who}` });
+          b.style.setProperty("--c", key === "volume" ? "var(--text)" : color);
+          b.dataset.line = `${side}.${key}`;
+          tools.push(b);
+        }
+      }
+      if (mixLines(box).edited) tools.push(Object.assign(document.createElement("button"), { type: "button", className: "reset", textContent: "↺ recipe", title: "Back to the default mix for this transition" }));
+      return tools;
+    }
+
+    function curveGeometry(inc) {
+      const out = state.boxes[inc.i - 1];
+      const { lines, bar, total } = mixLines(inc);
+      const area = (box) => ({ top: LANE_TOP + box.lane * (state.laneH + LANE_GAP) + 22 + 5, h: state.laneH - 40 - 10 });
+      const areas = { inc: area(inc), out: area(out) };
+      return {
+        lines, total, areas,
+        x: (b) => timeX(inc.start + Math.max(0, Math.min(total, b)) * bar),
+        barAt: (x) => (xTime(x) - inc.start) / bar,
+        y: (side, v) => areas[side].top + (1 - v) * areas[side].h,
+        valueAt: (side, y) => Math.max(0, Math.min(1, 1 - (y - areas[side].top) / areas[side].h)),
+      };
+    }
+
+    function svg(tag, attrs) {
+      const el = document.createElementNS(SVG_NS, tag);
+      for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+      return el;
+    }
+
+    // Lines over the waveforms where the selected track mixes in: its own on its block, the previous track's on that one.
+    function drawCurves() {
+      $("curves")?.remove();
+      const inc = state.boxes[state.selected];
+      if (!inc || !inc.i || inc.overlap <= 0) return;
+      const g = curveGeometry(inc);
+      const lanes = $("lanes");
+      const root = svg("svg", { id: "curves", width: lanes.scrollWidth, height: lanes.clientHeight });
+      const handles = svg("g", {}); // on top of every line, so other lines never cover the points
+      for (const side of ["out", "inc"]) {
+        for (const key of LINE_KEYS) {
+          const k = `${side}.${key}`;
+          const pts = g.lines[k];
+          const active = curveEdit.key === k;
+          let d = `M${g.x(0)},${g.y(side, MixRecipe.valueAt(pts, 0))}`;
+          pts.forEach((p, n) => {
+            const q = pts[n + 1];
+            if (!q || q.b === p.b || !p.m || p.m === 0.5) { d += ` L${g.x(p.b)},${g.y(side, p.v)}`; return; }
+            for (let s = 0; s <= 16; s += 1) { const b = p.b + ((q.b - p.b) * s) / 16; d += ` L${g.x(b)},${g.y(side, MixRecipe.valueAt(pts, b))}`; }
+          });
+          d += ` L${g.x(g.total)},${g.y(side, MixRecipe.valueAt(pts, g.total))}`;
+          root.append(svg("path", { d, class: "hit", "data-line": k }));
+          root.append(svg("path", { d, class: "line", stroke: LINE_STYLE[key][1], "stroke-width": active ? 2.5 : 1.25, opacity: active ? 1 : 0.55 }));
+          if (!active) continue;
+          pts.forEach((p, n) => {
+            const q = pts[n + 1];
+            if (q && q.b > p.b && q.v !== p.v) {
+              const mid = (p.b + q.b) / 2;
+              handles.append(svg("circle", { class: "bend", cx: g.x(mid), cy: g.y(side, MixRecipe.valueAt(pts, mid)), r: 3.5, "data-seg": n }));
+            }
+          });
+          // Hollow handles at the line's start and end, where it only holds a value: drag one to add a point there.
+          const ends = [];
+          if (pts[0].b > 0.01) ends.push(["start", 0, pts[0].v]);
+          if (pts[pts.length - 1].b < g.total - 0.01) ends.push(["end", g.total, pts[pts.length - 1].v]);
+          for (const [end, b, v] of ends) {
+            handles.append(svg("rect", { class: "end", x: g.x(b) - 5, y: g.y(side, v) - 5, width: 10, height: 10, rx: 2, stroke: LINE_STYLE[key][1], "data-end": end }));
+          }
+          pts.forEach((p, n) => {
+            if (p.b > g.total + 0.01) return;
+            handles.append(svg("circle", { class: `pt${curveEdit.point === n ? " sel" : ""}`, cx: g.x(p.b), cy: g.y(side, p.v), r: 5, fill: LINE_STYLE[key][1], "data-pt": n }));
+          });
+        }
+      }
+      root.append(handles);
+      lanes.append(root);
+    }
+
+    let curveDrag = null;
+    function curveTip(text, x, y) {
+      $("curve-tip")?.remove();
+      if (text) $("curves")?.append(Object.assign(svg("text", { id: "curve-tip", class: "tip", x: x + 10, y: y - 10 }), { textContent: text }));
+    }
+    const pct = (v) => `${Math.round(v * 100)}%`;
+    const lanePoint = (e) => { const r = $("lanes").getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+
+    $("lanes").addEventListener("pointerdown", (e) => {
+      const target = e.target;
+      if (!target.closest || !target.closest("#curves")) return;
+      const inc = state.boxes[state.selected];
+      e.preventDefault();
+      e.stopPropagation();
+      if (target.dataset.line && curveEdit.key !== target.dataset.line) {
+        curveEdit.key = target.dataset.line;
+        curveEdit.point = null;
+        render();
+        return;
+      }
+      if (target.dataset.pt !== undefined) {
+        const n = Number(target.dataset.pt);
+        if (e.altKey) { deleteCurvePoint(inc, n); return; }
+        curveEdit.point = n;
+        curveDrag = { kind: "pt", inc, n, moved: false };
+      } else if (target.dataset.end) {
+        // The line's held start / end becomes a real point once it is dragged.
+        curveDrag = { kind: "end", atEnd: target.dataset.end === "end", inc, moved: false };
+      } else if (target.dataset.seg !== undefined) {
+        curveDrag = { kind: "bend", inc, n: Number(target.dataset.seg), moved: false };
+      } else {
+        return;
+      }
+      target.setPointerCapture(e.pointerId);
+      drawCurves();
+    }, true);
+
+    // Double-click the line being edited to add a point there.
+    $("lanes").addEventListener("dblclick", (e) => {
+      if (e.target.dataset?.line !== curveEdit.key) return;
+      const inc = state.boxes[state.selected];
+      const g = curveGeometry(inc);
+      const side = curveEdit.key.split(".")[0];
+      const { x, y } = lanePoint(e);
+      const b = Math.max(0, Math.min(g.total, e.shiftKey ? g.barAt(x) : Math.round(g.barAt(x))));
+      const pts = editableLine(inc, curveEdit.key);
+      const at = pts.filter((p) => p.b <= b).length;
+      pts.splice(at, 0, { b, v: Math.round(g.valueAt(side, y) * 100) / 100 });
+      curveEdit.point = at;
+      commit();
+    });
+
+    /** Select the mix into track i and zoom so it fills most of the timeline, centred. */
+    function zoomToMix(i) {
+      selectTrack(i);
+      const box = state.boxes[i];
+      const width = $("timeline").clientWidth;
+      const span = Math.max(box.overlap, 8 * barMs(box.enterTempo)) * 1.6;
+      setZoom(ZOOMS.filter((z) => span * state.fit * z <= width).pop() || 1);
+      userScrollAt = performance.now();
+      $("timeline").scrollLeft = timeX(box.start + box.overlap / 2) - width / 2;
+    }
+
+    function deleteCurvePoint(inc, n) {
+      const pts = editableLine(inc, curveEdit.key);
+      if (pts.length <= 1) { toast("A line needs at least one point"); return; }
+      pts.splice(n, 1);
+      curveEdit.point = null;
+      commit();
+    }
+
+    window.addEventListener("pointermove", (e) => {
+      if (!curveDrag) return;
+      const { inc } = curveDrag;
+      const g = curveGeometry(inc);
+      const side = curveEdit.key.split(".")[0];
+      const { x, y } = lanePoint(e);
+      const pts = editableLine(inc, curveEdit.key);
+      curveDrag.moved = true;
+      if (curveDrag.kind === "end") {
+        if (curveDrag.atEnd) pts.push({ b: Math.round(g.total * 1000) / 1000, v: pts[pts.length - 1].v });
+        else pts.unshift({ b: 0, v: pts[0].v });
+        Object.assign(curveDrag, { kind: "pt", n: curveDrag.atEnd ? pts.length - 1 : 0 });
+        curveEdit.point = curveDrag.n;
+      }
+      const { n } = curveDrag;
+      if (curveDrag.kind === "pt") {
+        const lo = n > 0 ? pts[n - 1].b : 0;
+        const hi = n < pts.length - 1 ? pts[n + 1].b : g.total;
+        const raw = g.barAt(x);
+        pts[n].b = Math.max(lo, Math.min(hi, e.shiftKey ? Math.round(raw * 100) / 100 : Math.round(raw)));
+        let v = g.valueAt(side, y);
+        if (v > 0.97) v = 1;
+        if (v < 0.03) v = 0;
+        pts[n].v = Math.round(v * 100) / 100;
+        cancelAnimationFrame(frame);
+        frame = requestAnimationFrame(() => { drawCurves(); curveTip(`${LINE_STYLE[curveEdit.key.split(".")[1]][0]} ${pct(pts[n].v)} · bar ${Math.floor(pts[n].b) + 1}`, g.x(pts[n].b), g.y(side, pts[n].v)); });
+      } else {
+        const p = pts[n];
+        const q = pts[n + 1];
+        if (!q || q.v === p.v) return;
+        p.m = Math.max(0.05, Math.min(0.95, (g.valueAt(side, y) - p.v) / (q.v - p.v)));
+        cancelAnimationFrame(frame);
+        frame = requestAnimationFrame(drawCurves);
+      }
+    });
+
+    function endCurveDrag() {
+      if (!curveDrag) return;
+      const { moved } = curveDrag;
+      curveDrag = null;
+      cancelAnimationFrame(frame);
+      if (moved) commit();
+      else drawCurves();
+    }
+    window.addEventListener("pointerup", endCurveDrag);
+    window.addEventListener("pointercancel", endCurveDrag);
+
+    // ---------- editing: move, trim, mix length ----------
+    let drag = null;
+    let frame = 0;
+    $("lanes").addEventListener("pointerdown", (e) => {
+      const block = e.target.closest(".block");
+      if (!block) return;
+      const box = state.boxes[Number(block.dataset.index)];
+      if (e.target.classList.contains("handle")) {
+        drag = { kind: "trim", side: e.target.dataset.side, box, x: e.clientX, inMs: box.inMs, outMs: box.outMs, el: e.target };
+        e.target.classList.add("on");
+      } else if (e.target.closest(".num") || (e.altKey && (e.target.closest(".head") || e.target.tagName === "CANVAS"))) {
+        // The number badge (or Alt+drag) reorders tracks.
+        drag = { kind: "move", box, x: e.clientX, block };
+        block.classList.add("dragging");
+      } else if ((e.target.closest(".head") && !e.target.closest(".mute")) || e.target.tagName === "CANVAS") {
+        // Dragging the block itself moves where it mixes into the previous track (a click still selects / plays).
+        drag = { kind: "slide", box, x: e.clientX, entryMs: box.entryMs, moved: false, block, fromHead: !!e.target.closest(".head") };
+      } else {
+        return;
+      }
+      e.preventDefault();
+      e.target.setPointerCapture(e.pointerId);
+    });
+
+    /** Round to a whole number of 16-bar phrases, between one phrase and MAX_BARS. */
+    function phraseBars(bars) {
+      return Math.min(MAX_BARS, Math.max(PHRASE_BARS, Math.round(bars / PHRASE_BARS) * PHRASE_BARS));
+    }
+
+    /** Move where track i enters the previous track, keeping at least one bar of A before it. */
+    function setEntry(i, ms) {
+      const prev = state.boxes[i - 1];
+      const clamped = Math.max(prev.inMs + barMs(prev.bpm), earliestEntry(prev, state.boxes[i - 2]), Math.min(ms, prev.outMs));
+      state.items[i].entry = { prevId: prev.it.id, ms: clamped };
+    }
+
+    window.addEventListener("pointermove", (e) => {
+      if (!drag) return;
+      const dx = e.clientX - drag.x;
+      if (drag.kind === "move") {
+        drag.block.style.transform = `translateX(${dx}px)`;
+        return;
+      }
+      if (drag.kind === "slide") {
+        if ((Math.abs(dx) < 3 && !drag.moved) || drag.box.i === 0) return;
+        drag.moved = true;
+        setEntry(drag.box.i, slideTarget(drag.box.i, drag.entryMs + dx / pxPerMs(), e.shiftKey));
+        cancelAnimationFrame(frame);
+        frame = requestAnimationFrame(render);
+        return;
+      }
+      // Trims land on a phrase start (Shift: on any bar), so lengths stay whole phrases.
+      const dms = dx / pxPerMs();
+      const item = drag.box.it;
+      const grid = e.shiftKey ? drag.box.downs : phrasesOf(drag.box.wave);
+      const snap = (ms) => (grid.length ? nearest(grid, ms) : ms);
+      if (drag.side === "left") item.inMs = Math.max(0, Math.min(snap(drag.inMs + dms), drag.outMs - MIN_LEN_MS));
+      else item.outMs = Math.min(drag.box.dur, Math.max(drag.outMs + dms >= drag.box.dur - 1000 ? drag.box.dur : snap(drag.outMs + dms), drag.inMs + MIN_LEN_MS));
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(render);
+    });
+
+    let lastSlide = 0;
+    function endDrag(e) {
+      if (!drag) return;
+      cancelAnimationFrame(frame);
+      if (drag.kind === "slide") {
+        if (drag.moved) lastSlide = performance.now();
+        const { moved, fromHead, box } = drag;
+        drag = null;
+        if (moved) commit();
+        else if (fromHead) selectTrack(box.i);
+        return;
+      }
+      if (drag.kind === "move" && Math.abs(e.clientX - drag.x) < 3) {
+        drag.block.classList.remove("dragging");
+        drag.block.style.transform = "";
+        const index = drag.box.i;
+        drag = null;
+        selectTrack(index);
+        return;
+      }
+      if (drag.kind === "move") {
+        const center = timeX(drag.box.start + drag.box.duration / 2) + (e.clientX - drag.x);
+        const others = state.boxes.filter((b) => b !== drag.box);
+        const index = others.filter((b) => timeX(b.start + b.duration / 2) < center).length;
+        const [item] = state.items.splice(drag.box.i, 1);
+        state.items.splice(index, 0, item);
+        state.selected = index;
+      }
+      drag = null;
+      commit();
+    }
+    window.addEventListener("pointerup", endDrag);
+    window.addEventListener("pointercancel", endDrag);
+
+    // Per-track EQ buttons: click kills / restores a band, the wheel nudges it.
+    function setTrackEq(index, band, value) {
+      const item = state.items[index];
+      item.eq = { ...eqOf(item), [band]: Math.max(EQ_MIN, Math.min(EQ_MAX, value)) };
+      commit();
+      if (state.selected === index) updateLive(true);
+    }
+    $("lanes").addEventListener("wheel", (e) => {
+      const btn = e.target.closest(".eqbtn");
+      if (!btn) return;
+      e.preventDefault();
+      const index = Number(btn.closest(".block").dataset.index);
+      setTrackEq(index, btn.dataset.band, eqOf(state.items[index])[btn.dataset.band] + (e.deltaY < 0 ? EQ_STEP : -EQ_STEP));
+    }, { passive: false });
+
+    $("lanes").addEventListener("click", (e) => {
+      const chip = e.target.closest(".mix");
+      if (chip) {
+        const index = Number(chip.dataset.index);
+        if (e.target.dataset.line) { curveEdit.key = e.target.dataset.line; curveEdit.point = null; render(); }
+        else if (e.target.classList.contains("reset")) { delete state.items[index].curves; commit(); toast("Back to the default mix · ⌘Z to undo"); }
+        else zoomToMix(index);
+        return;
+      }
+      const eqBtn = e.target.closest(".eqbtn");
+      if (eqBtn) {
+        const index = Number(eqBtn.closest(".block").dataset.index);
+        const value = eqOf(state.items[index])[eqBtn.dataset.band];
+        setTrackEq(index, eqBtn.dataset.band, value <= EQ_MIN ? 0 : EQ_MIN);
+        return;
+      }
+      const mute = e.target.closest(".mute");
+      if (mute) {
+        const item = state.items[Number(mute.closest(".block").dataset.index)];
+        item.muted = !item.muted;
+        commit();
+        if (state.playing) sync();
+        return;
+      }
+      const block = e.target.closest(".block");
+      if (block && e.target.tagName === "CANVAS" && performance.now() - lastSlide > 300) {
+        const box = state.boxes[Number(block.dataset.index)];
+        const rect = e.target.getBoundingClientRect();
+        const from = Number(block.dataset.from);
+        const to = Number(block.dataset.to);
+        selectTrack(box.i);
+        seek(from + ((e.clientX - rect.left) / rect.width) * (to - from));
+      }
+    });
+
+    $("overview-wrap").addEventListener("click", (e) => {
+      const rect = e.currentTarget.getBoundingClientRect();
+      seek(((e.clientX - rect.left) / rect.width) * state.total);
+    });
+
+    // ---------- playback: Web Audio, sample-accurate ----------
+    // Each track plays from a decoded buffer, scheduled on the audio clock, so two tracks in a mix
+    // cannot drift. The part of a synced track that runs at another tempo (the mix and the glide
+    // back) is time-stretched ahead of time in a worker (SoundTouch, key kept), then played at rate 1.
+    let audioCtx = null;
+    const buffers = new Map(); // track id -> Promise<AudioBuffer>
+    const stretched = new Map(); // stretch key -> Promise<AudioBuffer>
+    const voices = new Map(); // block index -> {chain, sources} (by place in the set, so a track can appear twice)
+    const live = new Map(); // block index -> {volume, low, mid, high} as last sent, for the live strips
+    let clock = null; // {ctx, t}: audio-clock time `ctx` is set time `t`
+    let scheduledKey = "";
+    const LEAD = 0.08; // seconds between pressing play and the first sound
+    const AHEAD_MS = 45000; // prepare tracks starting within this window
+    const stretchWorker = new Worker(`/static/stretchWorker.js?v=${Date.now()}`, { type: "module" }); // never a stale cached worker
+    const jobs = new Map();
+    let jobId = 0;
+    stretchWorker.onmessage = (e) => { const job = jobs.get(e.data.id); jobs.delete(e.data.id); job?.resolve(e.data); };
+    stretchWorker.onerror = () => { for (const job of jobs.values()) job.reject(new Error("stretch failed")); jobs.clear(); };
+
+    // Master bus: headroom, so two full tracks in a mix do not add up past 0 dB, then a limiter
+    // that catches any peak left. A meter before the limiter counts what would have clipped.
+    const HEADROOM = 0.6; // about -4.4 dB
+    const TARGET_LUFS = -9; // tracks are matched to this integrated loudness (club masters sit around -6 to -10 LUFS)
+    const MATCH_RANGE_DB = [-8, 4]; // how far matching may turn a track down / up
+    let master = null;
+    const loudness = new Map(); // track id -> linear gain that matches its loudness
+
+    function ensureContext() {
+      if (!audioCtx) {
+        audioCtx = new AudioContext({ latencyHint: "playback" });
+        const input = audioCtx.createGain();
+        input.gain.value = HEADROOM;
+        const limiter = audioCtx.createDynamicsCompressor();
+        limiter.threshold.value = -1.5;
+        limiter.knee.value = 0;
+        limiter.ratio.value = 20;
+        limiter.attack.value = 0.001;
+        limiter.release.value = 0.12;
+        const meter = audioCtx.createAnalyser();
+        meter.fftSize = 2048;
+        input.connect(limiter).connect(audioCtx.destination);
+        input.connect(meter);
+        master = { input, limiter, meter };
+      }
+      return audioCtx.resume();
+    }
+
+    /** Gain that brings a track's loudness (LUFS, ITU BS.1770, loudness.js) to TARGET_LUFS, within MATCH_RANGE_DB. */
+    function matchLoudness(buffer) {
+      const channels = [buffer.getChannelData(0)];
+      if (buffer.numberOfChannels > 1) channels.push(buffer.getChannelData(1));
+      const lufs = Loudness.integratedLufs(channels, buffer.sampleRate);
+      if (!Number.isFinite(lufs)) return 1;
+      const db = Math.max(MATCH_RANGE_DB[0], Math.min(MATCH_RANGE_DB[1], TARGET_LUFS - lufs));
+      return Math.pow(10, db / 20);
+    }
+
+    // A small cache that keeps the most recently used entries (a decoded track is ~100 MB).
+    function cached(map, key, make, keep) {
+      if (map.has(key)) {
+        const hit = map.get(key);
+        map.delete(key);
+        map.set(key, hit);
+        return hit;
+      }
+      const promise = make();
+      map.set(key, promise);
+      promise.catch(() => { if (map.get(key) === promise) map.delete(key); });
+      while (map.size > keep) map.delete(map.keys().next().value);
+      return promise;
+    }
+
+    function loadBuffer(id) {
+      return cached(buffers, id, () => fetch(`/api/rb/audio/${id}`)
+        .then((r) => { if (!r.ok) throw new Error(`audio ${r.status}`); return r.arrayBuffer(); })
+        .then((data) => audioCtx.decodeAudioData(data))
+        .then((buffer) => {
+          loudness.set(id, matchLoudness(buffer));
+          return buffer;
+        }), 5);
+    }
+
+    // The key-locked audio for the part of a synced track that is not at its own tempo, or null.
+    function stretchFor(box) {
+      const startRate = box.map.rateAt(0);
+      if (!state.sync || Math.abs(startRate - 1) < 0.0005) return null;
+      const holdMs = box.overlap;
+      const glideMs = box.glideMs;
+      const key = [box.it.id, Math.round(box.inMs), startRate.toFixed(6), Math.round(holdMs), Math.round(glideMs)].join("|");
+      return cached(stretched, key, () => loadBuffer(box.it.id).then((buf) => new Promise((resolve, reject) => {
+        const rate = buf.sampleRate;
+        const from = Math.round((box.inMs / 1000) * rate);
+        const need = Math.ceil((box.map.audioAt(holdMs + glideMs) / 1000) * rate) + rate;
+        const left = buf.getChannelData(0).slice(from, from + need);
+        const right = (buf.numberOfChannels > 1 ? buf.getChannelData(1) : buf.getChannelData(0)).slice(from, from + need);
+        const id = ++jobId;
+        jobs.set(id, { reject, resolve: (data) => {
+          const out = audioCtx.createBuffer(2, data.left.length, rate);
+          out.copyToChannel(data.left, 0);
+          out.copyToChannel(data.right, 1);
+          resolve(out);
+        } });
+        const beatsMs = (box.wave?.beats || []).map((ms) => ms - box.inMs).filter((ms) => ms >= 0 && ms <= (need / rate) * 1000);
+        stretchWorker.postMessage({ id, left, right, sampleRate: rate, startRate, holdMs, glideMs, beatsMs }, [left.buffer, right.buffer]);
+      })), 12);
+    }
+
+    // A block's audio as segments of set time: [stretched part], then the rest at its own tempo.
+    function segments(box) {
+      const stretch = stretchFor(box);
+      const split = stretch ? Math.min(box.start + box.overlap + box.glideMs, box.end) : box.start;
+      const list = [];
+      if (stretch) list.push({ from: box.start, to: split, buffer: stretch, offsetMs: 0 });
+      if (split < box.end) list.push({ from: split, to: box.end, buffer: loadBuffer(box.it.id), offsetMs: box.inMs + box.map.audioAt(split - box.start) });
+      return list;
+    }
+
+    const ctxAt = (t) => clock.ctx + (t - clock.t) / 1000;
+    const setTimeNow = () => clock.t + (audioCtx.currentTime - clock.ctx) * 1000;
+
+    function voiceFor(index) {
+      if (voices.has(index)) return voices.get(index);
+      const low = Object.assign(audioCtx.createBiquadFilter(), { type: "lowshelf" });
+      low.frequency.value = 180;
+      const mid = Object.assign(audioCtx.createBiquadFilter(), { type: "peaking" });
+      mid.frequency.value = 1000;
+      mid.Q.value = 0.7;
+      const high = Object.assign(audioCtx.createBiquadFilter(), { type: "highshelf" });
+      high.frequency.value = 3200;
+      const gain = audioCtx.createGain();
+      gain.gain.value = 0;
+      low.connect(mid).connect(high).connect(gain).connect(master.input);
+      const voice = { chain: { low, mid, high, gain }, sources: [] };
+      voices.set(index, voice);
+      return voice;
+    }
+
+    // Start every segment of a block that sounds from set time `from` on, on the audio clock.
+    function scheduleBox(box, from) {
+      const session = clock;
+      const voice = voiceFor(box.i);
+      for (const seg of segments(box)) {
+        if (seg.to <= from) continue;
+        seg.buffer.then((buffer) => {
+          if (clock !== session || !state.playing) return;
+          const earliest = audioCtx.currentTime + 0.02;
+          const startT = Math.max(seg.from, from, clock.t + (earliest - clock.ctx) * 1000);
+          if (startT >= seg.to) return;
+          const source = audioCtx.createBufferSource();
+          source.buffer = buffer;
+          source.connect(voice.chain.low);
+          const offset = (seg.offsetMs + (startT - seg.from)) / 1000;
+          source.start(ctxAt(startT), Math.max(0, offset), (seg.to - startT) / 1000);
+          voice.sources.push(source);
+          // Let go of finished audio, so a long set does not keep every track in memory.
+          source.onended = () => { source.disconnect(); voice.sources = voice.sources.filter((x) => x !== source); };
+        }).catch(() => audioFailed(box.it.id));
+      }
+    }
+
+    const failed = new Set();
+    function audioFailed(id) {
+      if (failed.has(id)) return;
+      failed.add(id);
+      toast(`Could not load the audio of “${state.tracks.get(id)?.title || id}”. Is the file still there?`);
+    }
+
+    function stopAll() {
+      for (const voice of voices.values()) {
+        for (const source of voice.sources) { try { source.stop(); } catch {} }
+        voice.chain.gain.disconnect();
+      }
+      voices.clear();
+      scheduledKey = "";
+    }
+
+    // What is laid out where; when it changes during playback, playback restarts from here.
+    const layoutKey = () => state.boxes.map((b) => [b.it.id, Math.round(b.start), Math.round(b.inMs), Math.round(b.outMs), b.map.rateAt(0).toFixed(5)].join(":")).join("|");
+    const scheduled = new Set();
+
+    // Playback starts once the audio for the play spot is ready (decoded, stretched), so nothing is skipped.
+    let session = 0;
+    async function startAt(t) {
+      const mine = ++session;
+      stopAll();
+      scheduled.clear();
+      clock = null;
+      state.t = t;
+      scheduledKey = layoutKey();
+      const soon = state.boxes.filter((b) => b.end > t && b.start <= t + 1000);
+      const needed = soon.flatMap((b) => segments(b).filter((seg) => seg.to > t && seg.from <= t + 1000).map((seg) => seg.buffer));
+      const slow = setTimeout(() => setLoading(mine === session), 150);
+      await Promise.allSettled(needed); // a failure shows when scheduleBox tries the track
+      clearTimeout(slow);
+      if (mine !== session || !state.playing) return;
+      setLoading(false);
+      clock = { ctx: audioCtx.currentTime + LEAD, t };
+      scheduleAhead();
+      sync();
+    }
+
+    function setLoading(on) {
+      $("toggle").classList.toggle("loading", on);
+      $("toggle").title = on ? "Loading audio…" : "Play / pause (Space)";
+    }
+
+    // Schedule tracks that start before set time t + AHEAD_MS; prepare (decode, stretch) the next ones.
+    function scheduleAhead() {
+      const t = setTimeNow();
+      for (const box of state.boxes) {
+        if (box.end <= t - 1000 && voices.has(box.i) && !voices.get(box.i).sources.length) {
+          voices.get(box.i).chain.gain.disconnect();
+          voices.delete(box.i);
+        }
+        if (box.end <= t || box.start > t + AHEAD_MS) continue;
+        if (!scheduled.has(box.i)) {
+          scheduled.add(box.i);
+          scheduleBox(box, Math.max(t, clock.t));
+        }
+      }
+      for (const box of state.boxes) if (box.start > t && box.start <= t + 2 * AHEAD_MS) segments(box);
+    }
+
+    function seek(ms) {
+      state.t = Math.max(0, Math.min(ms, state.total));
+      if (state.mixesOnly) state.t = mixStart(state.t);
+      saveView();
+      if (!state.playing) play();
+      else startAt(state.t);
+      updateClock();
+    }
+
+    async function play() {
+      if (!state.total || state.playing) return;
+      state.playing = true;
+      $("toggle").textContent = "❚❚";
+      const mine = session;
+      await ensureContext();
+      if (!state.playing || mine !== session) return; // paused while the audio device woke up
+      if (state.t >= state.total) state.t = 0;
+      if (state.mixesOnly) state.t = mixStart(state.t);
+      startAt(state.t);
+      requestAnimationFrame(frameLoop);
+    }
+
+    function pause() {
+      if (state.playing && clock) state.t = Math.min(state.total, Math.max(0, setTimeNow()));
+      state.playing = false;
+      session += 1;
+      clock = null;
+      stopAll();
+      setLoading(false);
+      $("toggle").textContent = "▶";
+      saveView();
+      updateLive(true);
+    }
+
+    // The audio engine runs on a timer, not on animation frames, so it keeps going in a background tab.
+    let lastAhead = 0;
+    setInterval(() => {
+      if (!state.playing || !clock) return;
+      state.t = Math.max(clock.t, setTimeNow());
+      if (state.t >= state.total) { state.t = state.total; pause(); updateClock(); return; }
+      if (state.mixesOnly && !drag) {
+        const here = mixAt(state.t);
+        if (!here) {
+          const next = mixWindows().find((w) => w.from > state.t);
+          if (next) { startAt(next.from); showMix(next); }
+          else { pause(); toast("That was the last mix"); }
+          return;
+        }
+        // Get the next mix's audio ready before this one ends, so the jump has no gap.
+        const next = mixWindows().find((w) => w.from >= here.to);
+        if (next && here.to - state.t < 10000) for (const b of state.boxes) if (b.end > next.from && b.start <= next.from + 1000) segments(b);
+      }
+      if (drag) return; // a drag in progress restarts playback once, when it ends
+      if (layoutKey() !== scheduledKey) { startAt(state.t); return; }
+      if (performance.now() - lastAhead > 500) { lastAhead = performance.now(); scheduleAhead(); }
+      sync();
+      if (performance.now() - lastViewSave > 2000) saveView();
+    }, 40);
+
+    // Screen updates while playing.
+    function frameLoop() {
+      if (!state.playing) return;
+      updateClock();
+      updateLive();
+      followPlayhead();
+      requestAnimationFrame(frameLoop);
+    }
+
+    // Keep the playhead in view while playing, unless the timeline was just scrolled by hand.
+    let userScrollAt = 0;
+    function followPlayhead() {
+      const timeline = $("timeline");
+      const x = timeX(state.t);
+      if (drag || performance.now() - userScrollAt < 4000) return;
+      if (x < timeline.scrollLeft || x > timeline.scrollLeft + timeline.clientWidth - 40) {
+        timeline.scrollLeft = x - 60;
+      }
+    }
+
+    // Mixer levels for whatever sounds now (the audio itself is already scheduled).
+    function sync() {
+      const t = state.t;
+      const active = state.boxes.filter((b) => t >= b.start && t < b.end).slice(0, 2).sort((x, y) => x.start - y.start);
+      mix(active, t);
+      const names = active.map((b) => state.tracks.get(b.it.id)?.title || b.it.id);
+      $("now").textContent = names.length ? names.join("  →  ") : "—";
+    }
+
+    // The mix recipe's EQ (`autoDb`, per band) adds to the track's own EQ.
+    function setMix(box, volume, autoDb) {
+      const item = box.it;
+      const eq = item.eq || {};
+      const band = (b) => Math.max(-40, (autoDb[b] || 0) + (eq[b] || 0));
+      const level = { volume: Math.max(0, Math.min(1, volume)), low: band("low"), mid: band("mid"), high: band("high") };
+      live.set(box.i, level);
+      const voice = voices.get(box.i);
+      if (!voice) return;
+      const now = audioCtx.currentTime;
+      voice.chain.gain.gain.setTargetAtTime(level.volume * (loudness.get(item.id) ?? 1), now, 0.02);
+      voice.chain.low.gain.setTargetAtTime(level.low, now, 0.04);
+      voice.chain.mid.gain.setTargetAtTime(level.mid, now, 0.04);
+      voice.chain.high.gain.setTargetAtTime(level.high, now, 0.04);
+    }
+
+    // B blends in by EQ (see mixRecipe.js); bass swap where B has bass; A fades out at its end.
+    function mix(active, t) {
+      if (active.length === 1) {
+        setMix(active[0], active[0].it.muted ? 0 : 1, FLAT);
+        return;
+      }
+      if (active.length !== 2) return;
+      const [out, inc] = active;
+      // With one side muted, the other plays alone at full volume and full bass.
+      if (out.it.muted || inc.it.muted) {
+        for (const box of [out, inc]) setMix(box, box.it.muted ? 0 : 1, FLAT);
+        return;
+      }
+      // The mix's lines (the recipe in mixRecipe.js unless edited), in bars of the mix tempo from B's start.
+      const { lines, bar } = mixLines(inc);
+      const at = (side, key) => MixRecipe.valueAt(lines[`${side}.${key}`], (t - inc.start) / bar);
+      const db = (side) => ({ low: MixRecipe.gainToDb(at(side, "low")), mid: MixRecipe.gainToDb(at(side, "mid")), high: MixRecipe.gainToDb(at(side, "high")) });
+      setMix(out, at("out", "volume"), db("out"));
+      setMix(inc, at("inc", "volume"), db("inc"));
+    }
+
+    function updateClock() {
+      $("clock").textContent = `${fmt(state.t)} / ${fmt(state.total)}`;
+      const windows = state.mixesOnly ? mixWindows() : [];
+      const here = windows.findIndex((w) => state.t >= w.from - 50 && state.t < w.to);
+      $("mix-count").hidden = !windows.length;
+      $("mix-count").textContent = here < 0 ? `${windows.length} mixes` : `Mix ${windows[here].mixes.map((i) => `${i}→${i + 1}`).join(", ")} · ${here + 1} of ${windows.length}`;
+      const show = state.total > 0 && (state.playing || state.t > 0);
+      const head = $("overview-head");
+      head.style.display = show ? "block" : "none";
+      head.style.left = `${(state.t / (state.total || 1)) * 100}%`;
+      const line = $("lane-playhead");
+      if (line) {
+        line.style.display = show ? "block" : "none";
+        line.style.left = `${timeX(state.t)}px`;
+      }
+    }
+
+    $("toggle").onclick = () => (state.playing ? pause() : play());
+    function setZoom(zoom) {
+      const box = $("timeline");
+      const centerMs = xTime(box.scrollLeft + box.clientWidth / 2);
+      state.zoom = zoom;
+      $("zoom-level").textContent = `${zoom}×`;
+      $("zoom-out").disabled = zoom === ZOOMS[0];
+      $("zoom-in").disabled = zoom === ZOOMS[ZOOMS.length - 1];
+      render();
+      box.scrollLeft = timeX(centerMs) - box.clientWidth / 2;
+      saveView();
+    }
+    const stepZoom = (dir) => setZoom(ZOOMS[Math.max(0, Math.min(ZOOMS.length - 1, ZOOMS.indexOf(state.zoom) + dir))]);
+    $("zoom-in").onclick = () => stepZoom(1);
+    $("zoom-out").onclick = () => stepZoom(-1);
+    $("zoom-fit").onclick = () => { fitZoom(); setZoom(1); };
+    $("mixes-only").addEventListener("change", (e) => {
+      state.mixesOnly = e.target.checked;
+      saveStore();
+      fitZoom();
+      setZoom(1);
+      if (state.mixesOnly && state.playing && !mixAt(state.t)) startAt(mixStart(state.t));
+      toast(state.mixesOnly ? "Mixes only: each mix from 8 bars before, then the next one" : "Playing the whole set");
+    });
+    $("sync").addEventListener("change", (e) => {
+      state.sync = e.target.checked;
+      saveStore();
+      render();
+    });
+    window.addEventListener("resize", () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(() => { fitZoom(); render(); }); });
+
+    // ---------- selected track: panel, EQ, keyboard ----------
+    const eqOf = (item) => ({ low: 0, mid: 0, high: 0, ...(item?.eq || {}) });
+    const dB = (v) => `${v > 0 ? "+" : ""}${v} dB`;
+    function eqSummary(item) {
+      const eq = eqOf(item);
+      return EQ_BANDS.filter((b) => eq[b]).map((b) => `${b[0].toUpperCase()}${eq[b] > 0 ? "+" : ""}${eq[b]}`).join(" ");
+    }
+
+    /** Select track i; `reveal` scrolls its start into view (keyboard selection). */
+    function selectTrack(i, reveal = false) {
+      if (!state.boxes.length) return;
+      const next = Math.max(0, Math.min(state.boxes.length - 1, i));
+      const changed = state.selected !== next;
+      state.selected = next;
+      // A new selection shows its mix curves, so it redraws.
+      if (changed) { curveEdit.point = null; render(); }
+      const box = state.boxes[state.selected];
+      const timeline = $("timeline");
+      const left = timeX(box.start);
+      if (reveal && (left < timeline.scrollLeft || left > timeline.scrollLeft + timeline.clientWidth - 80)) {
+        userScrollAt = performance.now();
+        timeline.scrollLeft = left - 40;
+      }
+      updateLive(true);
+      saveView();
+    }
+
+    const selectedItem = () => (state.selected === null ? null : state.items[state.selected]);
+
+    // Live strips for every track playing now (two during a mix): volume and EQ, bass swap included.
+    let lastLive = 0;
+    function updateLive(force) {
+      const now = performance.now();
+      if (!force && now - lastLive < 100) return;
+      lastLive = now;
+      const active = state.playing ? state.boxes.filter((b) => state.t >= b.start && state.t < b.end).slice(0, 2) : [];
+      const meter = (label, db, cut) => {
+        const m = Object.assign(document.createElement("span"), { className: `meter${cut ? " cut" : ""}` });
+        const bar = document.createElement("i");
+        bar.style.setProperty("--w", `${Math.round(((Math.max(EQ_MIN, Math.min(EQ_MAX, db)) - EQ_MIN) / (EQ_MAX - EQ_MIN)) * 100)}%`);
+        if (cut) bar.style.setProperty("--c", "#e8336c");
+        m.append(`${label}`, bar, dB(Math.round(db)));
+        return m;
+      };
+      $("now").hidden = active.length > 0; // the strips name the tracks
+      $("live").replaceChildren(...active.map((box) => {
+        const level = live.get(box.i) || { volume: 1, low: 0, mid: 0, high: 0 };
+        const strip = Object.assign(document.createElement("div"), { className: `strip${box.i === state.selected ? " selected" : ""}`, title: "Click to select this track" });
+        strip.dataset.index = box.i;
+        const volume = Object.assign(document.createElement("span"), { className: "meter" });
+        const vbar = document.createElement("i");
+        vbar.style.setProperty("--w", `${Math.round(level.volume * 100)}%`);
+        volume.append("Vol", vbar, `${Math.round(level.volume * 100)}%`);
+        strip.append(
+          Object.assign(document.createElement("span"), { className: "num", textContent: box.i + 1 }),
+          Object.assign(document.createElement("b"), { textContent: state.tracks.get(box.it.id)?.title || box.it.id }),
+          volume,
+          meter("L", level.low, level.low <= CUT_DB),
+          meter("M", level.mid, level.mid <= CUT_DB),
+          meter("H", level.high, level.high <= CUT_DB),
+        );
+        return strip;
+      }));
+    }
+    $("live").addEventListener("click", (e) => {
+      const strip = e.target.closest(".strip");
+      if (strip) selectTrack(Number(strip.dataset.index));
+    });
+
+    function editSelected(change) {
+      const item = selectedItem();
+      if (!item) { toast("Select a track first (click it or press its number)"); return; }
+      change(item);
+      commit();
+      updateLive(true);
+    }
+
+    function nudgeEq(band, delta) {
+      editSelected((item) => {
+        const eq = eqOf(item);
+        eq[band] = Math.max(EQ_MIN, Math.min(EQ_MAX, eq[band] + delta));
+        item.eq = eq;
+      });
+    }
+
+    function moveSelected(dir) {
+      const i = state.selected;
+      const j = i + dir;
+      if (i === null) { toast("Select a track first (click it or press its number)"); return; }
+      if (j < 0 || j >= state.items.length) return;
+      [state.items[i], state.items[j]] = [state.items[j], state.items[i]];
+      state.selected = j;
+      commit();
+      updateLive(true);
+      selectTrack(j, true);
+    }
+
+    function removeSelectedPoint() {
+      const inc = state.boxes[state.selected];
+      if (inc?.i && curveEdit.point !== null) deleteCurvePoint(inc, curveEdit.point);
+    }
+
+    function stepSelected(byBar, dir) {
+      if (!(state.selected > 0)) { toast(state.selected === 0 ? "The first track has nothing to mix into" : "Select a track first (click it or press its number)"); return; }
+      const before = state.boxes[state.selected].entryMs;
+      if (byBar) stepBars(state.selected, dir);
+      else stepAlignment(state.selected, dir);
+      if (state.items[state.selected].entry?.ms === before) { toast(dir < 0 ? "No earlier phrase lines up" : "No later phrase lines up"); return; }
+      commit();
+      updateLive(true);
+    }
+
+    function trimSelected(side, dir) {
+      const box = state.boxes[state.selected];
+      if (!box) { toast("Select a track first (click it or press its number)"); return; }
+      const grid = phrasesOf(box.wave);
+      if (side === "start") {
+        const options = grid.filter((p) => p < box.outMs - MIN_LEN_MS);
+        const next = dir < 0 ? options.filter((p) => p < box.inMs - 100).pop() ?? 0 : options.find((p) => p > box.inMs + 100);
+        if (next !== undefined) editSelected((item) => { item.inMs = next; });
+      } else {
+        const options = [...grid.filter((p) => p > box.inMs + MIN_LEN_MS), box.dur];
+        const next = dir < 0 ? options.filter((p) => p < box.outMs - 100).pop() : options.find((p) => p > box.outMs + 100);
+        if (next !== undefined) editSelected((item) => { item.outMs = next; });
+      }
+    }
+
+    $("help-btn").onclick = () => { $("help").hidden = false; };
+    $("help-close").onclick = () => { $("help").hidden = true; };
+    $("help").addEventListener("click", (e) => { if (e.target === $("help")) $("help").hidden = true; });
+    $("undo").onclick = () => undo(-1);
+    $("redo").onclick = () => undo(1);
+
+    // Number keys select tracks: 1–9 at once, and a second digit within 0.7 s makes 10 and up.
+    let digits = "";
+    let digitTimer = 0;
+    function typeTrackNumber(digit) {
+      clearTimeout(digitTimer);
+      const joined = digits + digit;
+      digits = Number(joined) >= 1 && Number(joined) <= state.boxes.length ? joined : digit;
+      const n = Number(digits);
+      if (n >= 1 && n <= state.boxes.length) selectTrack(n - 1, true);
+      digitTimer = setTimeout(() => { digits = ""; }, 700);
+    }
+
+    const KEYS = {
+      " ": () => (state.playing ? pause() : play()),
+      Enter: () => { const box = state.boxes[state.selected]; if (box) seek(box.start); },
+      ArrowLeft: (e) => (e.altKey ? moveSelected(-1) : selectTrack((state.selected ?? 1) - 1, true)),
+      ArrowRight: (e) => (e.altKey ? moveSelected(1) : selectTrack((state.selected ?? -1) + 1, true)),
+      m: () => editSelected((item) => { item.muted = !item.muted; }),
+      q: () => nudgeEq("low", EQ_STEP), a: () => nudgeEq("low", -EQ_STEP),
+      w: () => nudgeEq("mid", EQ_STEP), s: () => nudgeEq("mid", -EQ_STEP),
+      e: () => nudgeEq("high", EQ_STEP), d: () => nudgeEq("high", -EQ_STEP),
+      r: () => editSelected((item) => { delete item.eq; }),
+      "[": (e) => stepSelected(e.shiftKey, -1),
+      "]": (e) => stepSelected(e.shiftKey, 1),
+      ",": () => trimSelected("start", -1), ".": () => trimSelected("start", 1),
+      "<": () => trimSelected("end", -1), ">": () => trimSelected("end", 1),
+      t: () => $("sync").click(),
+      x: () => $("mixes-only").click(),
+      n: () => jumpMix(1),
+      p: () => jumpMix(-1),
+      "+": () => stepZoom(1), "=": () => stepZoom(1), "-": () => stepZoom(-1), f: () => $("zoom-fit").click(),
+      "?": () => { $("help").hidden = !$("help").hidden; },
+      Escape: () => {
+        if (!$("help").hidden) $("help").hidden = true;
+        else if (curveEdit.point !== null) { curveEdit.point = null; drawCurves(); }
+        else if (state.selected !== null) { state.selected = null; render(); }
+      },
+      Backspace: () => removeSelectedPoint(),
+      Delete: () => removeSelectedPoint(),
+    };
+    document.addEventListener("keydown", (e) => {
+      if (e.target.tagName === "SELECT" || (e.target.tagName === "INPUT" && e.target.type !== "range" && e.target.type !== "checkbox")) return;
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") { e.preventDefault(); undo(e.shiftKey ? 1 : -1); return; }
+      if (e.metaKey || e.ctrlKey) return;
+      // Enter on a focused button clicks it; Space always plays / pauses (never re-clicks the last button).
+      if (e.target.tagName === "BUTTON") { if (e.key === "Enter") return; if (e.key === " ") e.target.blur(); }
+      if (/^[0-9]$/.test(e.key) && !e.altKey) { e.preventDefault(); typeTrackNumber(e.key); return; }
+      const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+      const run = KEYS[e.key === "{" ? "[" : e.key === "}" ? "]" : key] || KEYS[e.key];
+      if (!run) return;
+      e.preventDefault();
+      run(e);
+    });
+
+    // ---------- per-playlist view: zoom, scroll, play spot, selection survive a refresh ----------
+    let lastViewSave = 0;
+    let restoring = false;
+    function saveView() {
+      if (restoring || !state.playlistId) return;
+      lastViewSave = performance.now();
+      try {
+        const store = loadStore();
+        store.views = { ...(store.views || {}), [state.playlistId]: {
+          zoom: state.zoom, t: Math.round(state.t), scroll: Math.round($("timeline").scrollLeft), selected: state.selected,
+        } };
+        localStorage.setItem(STORE_KEY, JSON.stringify(store));
+      } catch {}
+    }
+
+    function restoreView(id) {
+      const view = loadStore().views?.[id] || {};
+      restoring = true;
+      setZoom(ZOOMS.includes(view.zoom) ? view.zoom : 1);
+      state.t = Math.max(0, Math.min(view.t || 0, state.total));
+      state.selected = Number.isInteger(view.selected) && view.selected < state.boxes.length ? view.selected : null;
+      render();
+      updateLive(true);
+      if (Number.isFinite(view.scroll)) $("timeline").scrollLeft = view.scroll;
+      restoring = false;
+    }
+
+    let scrollTimer = 0;
+    // Only a hand scroll (wheel, trackpad, scrollbar) pauses following the playhead; redraws do not.
+    $("timeline").addEventListener("wheel", () => { userScrollAt = performance.now(); }, { passive: true });
+    $("timeline").addEventListener("pointerdown", (e) => { if (e.target === $("timeline")) userScrollAt = performance.now(); });
+    $("timeline").addEventListener("scroll", () => {
+      updateOverviewView();
+      clearTimeout(scrollTimer);
+      scrollTimer = setTimeout(saveView, 300);
+    });
+    window.addEventListener("beforeunload", saveView);
+
+    // ---------- playlists ----------
+    async function loadWaves(ids, onProgress) {
+      const missing = ids.filter((id) => !state.waves.has(id));
+      let done = 0;
+      await Promise.all(missing.map((id) =>
+        fetch(`/api/rb/waveform/${id}`).then((r) => (r.ok ? r.json() : null)).catch(() => null)
+          .then((data) => { state.waves.set(id, data); onProgress?.((done += 1), missing.length); })));
+    }
+
+    const playlistTracks = (id) => (state.playlists.find((p) => p.id === id)?.track_ids || []).filter((tid) => state.waves.get(tid));
+
+    let opening = 0;
+    async function selectPlaylist(id) {
+      const mine = ++opening;
+      pause();
+      state.t = 0;
+      state.playlistId = id;
+      state.selected = null;
+      state.items = [];
+      layout();
+      $("lanes").innerHTML = `<div class="empty">Loading waveforms…</div>`;
+      drawOverview();
+      await loadWaves(state.playlists.find((p) => p.id === id)?.track_ids || [], (done, all) => {
+        if (mine === opening && all > 20) $("lanes").firstElementChild.textContent = `Loading waveforms… ${done} / ${all}`;
+      });
+      if (mine !== opening) return; // another playlist was picked meanwhile
+      const ids = playlistTracks(id);
+      // The newer of the Mac's copy and this browser's copy wins; a browser-only set moves to the Mac.
+      const local = loadStore().sets?.[id];
+      const macWins = serverSets[id] && (!local || (serverStamps[id] || 0) >= stampOf(id));
+      const saved = JSON.parse(JSON.stringify((macWins ? serverSets[id] : local) || [])); // a copy: edits must not change serverSets
+      const replaced = macWins && local && canon(local) !== canon(serverSets[id]) ? local : null;
+      const savedById = new Map(saved.map((it) => [it.id, it]));
+      const valid = new Set(ids);
+      // Keep a saved order and trims, drop tracks no longer in the playlist, add new ones at the end.
+      state.items = saved.filter((it) => valid.has(it.id));
+      for (const tid of ids) if (!savedById.has(tid)) state.items.push({ id: tid });
+      saveStore();
+      fitZoom();
+      restoreView(id);
+      resetHistory();
+      if (replaced) {
+        toast("Showing the newer version saved on the Mac.", { label: "Use this browser's", run: () => { state.items = replaced; commit(); toast("Switched · ⌘Z to undo"); } });
+      }
+    }
+
+    // Start zoomed so the whole set fits the screen.
+    function fitZoom() {
+      layout();
+      updateSpans();
+      const shown = spans.reduce((sum, w) => sum + (w.to - w.from), 0);
+      const width = $("timeline").clientWidth - 40 - GAP_PX * (spans.length - 1);
+      if (shown && width > 0) state.fit = width / shown;
+    }
+
+    function fillPlaylistPicker() {
+      const byParent = new Map();
+      for (const p of state.playlists) {
+        if (!byParent.has(p.parent)) byParent.set(p.parent, []);
+        byParent.get(p.parent).push(p);
+      }
+      const options = [];
+      const walk = (parent, path) => {
+        for (const p of byParent.get(parent) || []) {
+          if (p.folder) walk(p.id, [...path, p.name]);
+          else if (!p.error && p.track_ids.length) options.push({ id: p.id, label: [...path, p.name].join(" / "), n: p.track_ids.length });
+        }
+      };
+      walk("root", []);
+      $("playlist").innerHTML = options
+        .map((o) => `<option value="${o.id}">${o.label.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c])} (${o.n})</option>`)
+        .join("");
+      return options;
+    }
+
+    $("playlist").addEventListener("change", (e) => selectPlaylist(e.target.value));
+    $("reset").addEventListener("click", () => {
+      state.items = playlistTracks(state.playlistId).map((id) => ({ id }));
+      state.selected = null;
+      fitZoom();
+      commit();
+      toast("Back to the playlist order · ⌘Z to undo");
+    });
+    // Mix points as memory cues, in ms of each track's own audio.
+    function mixPoints() {
+      const points = state.boxes.map(() => []);
+      const audio = (box, t) => Math.round(box.inMs + box.map.audioAt(t - box.start));
+      for (const inc of state.boxes.slice(1)) {
+        const out = state.boxes[inc.i - 1];
+        const bar = barMs(inc.enterTempo);
+        points[inc.i].push({ ms: Math.round(inc.inMs), name: "Seta mix in" });
+        points[out.i].push({ ms: Math.round(inc.entryMs), name: "Seta next in" });
+        // The bass swap is where the new track's low line (as edited) first reaches half: the recipe's step, or your own curve.
+        const lowLine = mixLines(inc).lines["inc.low"];
+        const total = (out.end - inc.start) / bar;
+        let swapBarNow = null;
+        for (let b = 0; b <= total; b += 1 / 16) if (MixRecipe.valueAt(lowLine, b) >= 0.5) { swapBarNow = b; break; }
+        if (swapBarNow !== null) {
+          const swap = inc.start + swapBarNow * bar;
+          points[inc.i].push({ ms: audio(inc, swap), name: "Seta bass swap" });
+          if (swap < out.end) points[out.i].push({ ms: audio(out, swap), name: "Seta bass swap" });
+        }
+        const cut = cutTime(out);
+        if (cut !== null && cut < out.end) points[out.i].push({ ms: audio(out, cut), name: "Seta cut" });
+      }
+      return points;
+    }
+
+    $("export").addEventListener("click", async () => {
+      const name = `${state.playlists.find((p) => p.id === state.playlistId)?.name || "set"} (arranged)`;
+      const points = mixPoints();
+      const res = await fetch("/api/rb/xml", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, tracks: state.boxes.map((box) => ({ id: box.it.id, cues: points[box.i] })) }),
+      });
+      if (!res.ok) { toast("Export failed. Is the server running?"); return; }
+      const { path } = await res.json();
+      toast(`Saved to ${path.replace(/^\/Users\/[^/]+/, "~")}, with a backup of your rekordbox library first. In rekordbox: ↻ rekordbox xml, then select the tracks → Import To Collection`);
+    });
+
+    (async function init() {
+      let data;
+      try {
+        const res = await fetch("/api/rb/tracks");
+        if (!res.ok) throw new Error(String(res.status));
+        data = await res.json();
+      } catch {
+        $("lanes").innerHTML = `<div class="empty">Could not reach Seta. Check that the server is running, then reload.</div>`;
+        return;
+      }
+      // Shared on the home network: only this page exists, and file paths mean nothing elsewhere.
+      if (data.arrange_only) { $("tags-link").hidden = true; $("export").hidden = true; }
+      state.tracks = new Map(data.tracks.map((t) => [t.id, t]));
+      state.playlists = data.playlists;
+      const options = fillPlaylistPicker();
+      ({ sets: serverSets = {}, stamps: serverStamps = {} } = await fetch("/api/arrange/sets").then((r) => (r.ok ? r.json() : {})).catch(() => ({}))); // eslint-disable-line
+      state.sync = loadStore().sync !== false;
+      $("sync").checked = state.sync;
+      state.mixesOnly = loadStore().mixesOnly === true;
+      $("mixes-only").checked = state.mixesOnly;
+      const saved = loadStore().playlistId;
+      const start = options.find((o) => o.id === saved) || options[0];
+      if (!start) { $("lanes").innerHTML = `<div class="empty">No Rekordbox playlists found.</div>`; return; }
+      $("playlist").value = start.id;
+      selectPlaylist(start.id);
+    })();
+  </script>
+</body>
+</html>

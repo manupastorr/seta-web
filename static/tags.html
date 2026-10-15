@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Seta Tags</title>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --panel: #f5f5f8;
+      --panel-border: #e2e2ea;
+      --text: #1a1a24;
+      --muted: #6b6b80;
+      --accent: #6b4fd8;
+      --accent-soft: rgba(107, 79, 216, 0.12);
+      --star: #e8a400;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #15151c;
+        --panel: #1e1e28;
+        --panel-border: #2e2e3a;
+        --text: #ececf2;
+        --muted: #9090a4;
+        --accent: #9d86ff;
+        --accent-soft: rgba(157, 134, 255, 0.16);
+      }
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font: 14px/1.45 "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+    }
+    body { display: flex; flex-direction: column; }
+    button { font: inherit; color: inherit; cursor: pointer; }
+
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px 14px;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--panel-border);
+    }
+    header h1 { font-size: 16px; margin: 0 6px 0 0; }
+    .seg { display: flex; background: var(--panel); border-radius: 8px; padding: 2px; }
+    .seg button {
+      border: 0; background: none; padding: 4px 10px; border-radius: 6px; color: var(--muted);
+    }
+    .seg button.on { background: var(--bg); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+    #search {
+      flex: 1 1 160px; min-width: 120px; max-width: 320px;
+      padding: 6px 10px; border: 1px solid var(--panel-border); border-radius: 8px;
+      background: var(--bg); color: var(--text); font: inherit;
+    }
+    #save { margin-left: auto; display: flex; align-items: center; gap: 8px; color: var(--muted); }
+    #save button {
+      border: 0; border-radius: 8px; padding: 6px 12px; background: var(--accent); color: #fff;
+    }
+    #save button:disabled { opacity: .45; cursor: default; }
+
+    .body { flex: 1; min-height: 0; display: flex; }
+    nav {
+      width: 220px; flex: none; overflow-y: auto; padding: 8px 6px;
+      border-right: 1px solid var(--panel-border); background: var(--panel);
+    }
+    nav .item {
+      display: flex; align-items: center; gap: 6px; width: 100%;
+      border: 0; background: none; padding: 3px 8px; border-radius: 6px; text-align: left;
+    }
+    nav .item:hover { background: var(--accent-soft); }
+    nav .item.on { background: var(--accent); color: #fff; }
+    nav .item .label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    nav .item .count { font-size: 12px; opacity: .7; }
+    nav .icon { width: 14px; flex: none; text-align: center; font-size: 11px; opacity: .7; }
+    main { flex: 1; min-width: 0; overflow-y: auto; container-type: inline-size; }
+    aside {
+      width: 190px; flex: none; overflow-y: auto; padding: 8px 10px;
+      border-left: 1px solid var(--panel-border); background: var(--panel);
+    }
+    aside[hidden] { display: none; }
+    aside h3 {
+      margin: 12px 0 4px; font-size: 12px; font-weight: 600; text-transform: capitalize; color: var(--muted);
+    }
+    aside h3:first-child { margin-top: 0; }
+    aside label { display: flex; align-items: center; gap: 8px; padding: 2px 0; cursor: pointer; }
+    aside label input { accent-color: var(--accent); margin: 0; }
+    aside .count { margin-left: auto; font-size: 12px; color: var(--muted); }
+    #filter-btn {
+      border: 1px solid var(--panel-border); background: none; border-radius: 8px; padding: 5px 10px;
+    }
+    #filter-btn.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+    #filter-clear { border: 0; background: none; color: var(--accent); padding: 0; margin-top: 12px; }
+    .row {
+      display: grid;
+      grid-template-columns: 28px minmax(0, 1fr) 240px auto auto;
+      align-items: center;
+      gap: 12px;
+      padding: 6px 16px;
+      border-bottom: 1px solid var(--panel-border);
+    }
+    .row:hover { background: var(--panel); }
+    .row.playing { background: var(--accent-soft); }
+    .row .play {
+      border: 0; background: none; width: 28px; height: 28px; border-radius: 50%;
+      color: var(--muted);
+    }
+    .row.playing .play { color: var(--accent); }
+    .name { min-width: 0; cursor: pointer; }
+    .wave { display: block; width: 240px; height: 34px; background: #0b0b0b; border-radius: 3px; cursor: pointer; }
+    .name div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .name .artist { color: var(--muted); font-size: 12px; }
+    .pending-dot::after { content: " •"; color: var(--accent); }
+    .stars { white-space: nowrap; }
+    .stars button {
+      border: 0; background: none; padding: 0 1px; font-size: 18px; color: var(--panel-border);
+    }
+    .stars button.on { color: var(--star); }
+    .fn { display: flex; gap: 4px; }
+    .fn button {
+      border: 1px solid var(--panel-border); background: none; border-radius: 999px;
+      padding: 2px 9px; font-size: 12px; color: var(--muted);
+    }
+    .fn button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .tags { display: flex; gap: 10px; }
+    .fn + .fn { padding-left: 10px; border-left: 1px solid var(--panel-border); }
+    /* Narrow list (e.g. filter panel open): tag buttons move under the title. */
+    @container (max-width: 1100px) {
+      .row { grid-template-columns: 28px minmax(0, 1fr) auto; row-gap: 4px; }
+      .wave { grid-column: 2 / -1; width: 100%; }
+      .tags { grid-column: 2 / -1; flex-wrap: wrap; row-gap: 4px; }
+    }
+    .empty { padding: 40px; text-align: center; color: var(--muted); }
+
+    footer {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      align-items: center;
+      gap: 14px;
+      padding: 10px 16px;
+      border-top: 1px solid var(--panel-border);
+      background: var(--panel);
+    }
+    .transport { display: flex; gap: 4px; }
+    .transport button {
+      border: 0; background: none; width: 34px; height: 34px; border-radius: 50%; font-size: 15px;
+    }
+    .transport #toggle { background: var(--accent); color: #fff; }
+    #now { min-width: 0; }
+    #now-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .seekline { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+    #seek { flex: 1; accent-color: var(--accent); }
+    .hint { font-size: 12px; color: var(--muted); }
+
+    @media (max-width: 760px) {
+      .body { flex-direction: column; }
+      nav { width: auto; max-height: 30vh; border-right: 0; border-bottom: 1px solid var(--panel-border); }
+      aside { width: auto; max-height: 35vh; border-left: 0; border-bottom: 1px solid var(--panel-border); order: -1; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Seta 🍄 Tags</h1>
+    <a href="/gig" style="color:var(--accent)">Gig plans</a>
+    <a href="/arrange" style="color:var(--accent)">Arrange</a>
+    <div class="seg" id="show">
+      <button data-v="all" class="on">All</button>
+      <button data-v="untagged">Needs tags</button>
+    </div>
+    <input id="search" type="search" placeholder="Search  ( / )" />
+    <button id="filter-btn" title="Filter by tags (F)">Filter</button>
+    <div id="save"><span id="save-text"></span><button id="save-btn" disabled>Save to Rekordbox</button></div>
+  </header>
+
+  <div class="body">
+    <nav id="nav"></nav>
+    <main id="list"><div class="empty">Loading…</div></main>
+    <aside id="filters" hidden></aside>
+  </div>
+
+  <footer>
+    <div class="transport">
+      <button id="prev" title="Previous (←)">⏮</button>
+      <button id="toggle" title="Play / pause (Space)">▶</button>
+      <button id="next" title="Next (→)">⏭</button>
+    </div>
+    <div id="now">
+      <div id="now-title">Nothing playing</div>
+      <div class="seekline">
+        <span id="cur">0:00</span><input id="seek" type="range" min="0" max="1000" value="0" /><span id="dur">0:00</span>
+      </div>
+      <div class="hint">Keys: 1–5 energy · 0 clear · I H M L R function · F filter · Shift+←/→ seek</div>
+    </div>
+  </footer>
+
+  <audio id="audio" preload="auto"></audio>
+
+  <script src="/static/rbWaveform.js"></script>
+  <script>
+    const state = {
+      tracks: [],
+      trackById: new Map(),
+      multi: new Set(), // editable fields that take several tags (State)
+      groups: {}, // editable field -> tag names, e.g. function: [Invite, ...], source: [Manu, AI]
+      filterGroups: [], // [{field, tags}] for every My Tag group, plus energy
+      filters: {}, // field -> Set of ticked values; NONE = track has no tag in that group
+      playlists: [],
+      playlistId: null,
+      open: new Set(),
+      show: "all",
+      query: "",
+      currentId: null,
+      queue: [], // track ids of the list playback started from
+    };
+    const audio = document.getElementById("audio");
+    const listEl = document.getElementById("list");
+    const $ = (id) => document.getElementById(id);
+
+    const STORE_KEY = "seta-tags-nav-v1";
+    const NONE = "(none)";
+    function loadNavState() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(STORE_KEY) || "{}");
+        state.playlistId = saved.playlistId || null;
+        state.open = new Set(saved.open || []);
+        state.filters = Object.fromEntries(Object.entries(saved.filters || {}).map(([f, v]) => [f, new Set(v)]));
+      } catch {}
+    }
+    function saveNavState() {
+      try {
+        localStorage.setItem(STORE_KEY, JSON.stringify({
+          playlistId: state.playlistId,
+          open: [...state.open],
+          filters: Object.fromEntries(Object.entries(state.filters).map(([f, v]) => [f, [...v]])),
+        }));
+      } catch {}
+    }
+
+    function currentPlaylist() {
+      return state.playlists.find((p) => p.id === state.playlistId);
+    }
+
+    function visibleTracks() {
+      const q = state.query.trim().toLowerCase();
+      const ids = currentPlaylist()?.track_ids || [];
+      return ids.map((id) => state.trackById.get(id)).filter((t) => {
+        if (!t) return false;
+        if (state.show === "untagged" && t.energy && t.function) return false;
+        if (q && !`${t.title} ${t.artist}`.toLowerCase().includes(q)) return false;
+        return matchesFilters(t);
+      });
+    }
+
+    // Tag values of one group for a track; NONE when it has none.
+    function tagValues(t, field) {
+      let values;
+      if (field === "energy") values = t.energy ? [`${t.energy}`] : [];
+      else if (state.multi.has(field)) values = t[field];
+      else if (field in state.groups) values = t[field] ? [t[field]] : [];
+      else values = t.tags[field] || [];
+      return values.length ? values : [NONE];
+    }
+
+    // Any ticked value inside a group, every group with ticks.
+    function matchesFilters(t) {
+      return Object.entries(state.filters).every(
+        ([field, set]) => !set.size || tagValues(t, field).some((v) => set.has(v)),
+      );
+    }
+
+    function activeFilterCount() {
+      return Object.values(state.filters).reduce((n, set) => n + set.size, 0);
+    }
+
+    function renderFilters() {
+      const inPlaylist = (currentPlaylist()?.track_ids || []).map((id) => state.trackById.get(id)).filter(Boolean);
+      const html = state.filterGroups.map(({ field, tags }) => {
+        const set = state.filters[field] || new Set();
+        const options = [...tags, NONE].map((value) => {
+          const count = inPlaylist.filter((t) => tagValues(t, field).includes(value)).length;
+          const label = field === "energy" && value !== NONE ? "★".repeat(Number(value)) : value;
+          return `<label><input type="checkbox" data-field="${field}" data-value="${escapeHtml(value)}"${set.has(value) ? " checked" : ""} />
+            ${escapeHtml(label)}<span class="count">${count}</span></label>`;
+        });
+        return `<h3>${escapeHtml(field)}</h3>${options.join("")}`;
+      });
+      $("filters").innerHTML = html.join("") + `<button id="filter-clear">Clear filters</button>`;
+      const n = activeFilterCount();
+      $("filter-btn").textContent = n ? `Filter (${n})` : "Filter";
+      $("filter-btn").classList.toggle("on", n > 0);
+    }
+
+    function escapeHtml(text) {
+      return String(text).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+    }
+
+    function rowHtml(t) {
+      const stars = [1, 2, 3, 4, 5]
+        .map((n) => `<button data-energy="${n}" class="${n <= t.energy ? "on" : ""}" title="Energy ${n}">★</button>`)
+        .join("");
+      const groups = Object.entries(state.groups)
+        .map(([field, names]) => `<div class="fn ${field}">${names
+          .map((n) => `<button data-field="${field}" data-tag="${escapeHtml(n)}" class="${tagValues(t, field).includes(n) ? "on" : ""}">${escapeHtml(n)}</button>`)
+          .join("")}</div>`)
+        .join("");
+      const playing = t.id === state.currentId;
+      return `<div class="row${playing ? " playing" : ""}" data-id="${t.id}">
+        <button class="play" title="Play">${playing && !audio.paused ? "❚❚" : "▶"}</button>
+        <div class="name"><div class="${t.pending ? "pending-dot" : ""}">${escapeHtml(t.title)}</div><div class="artist">${escapeHtml(t.artist)}</div></div>
+        <canvas class="wave" data-wave="${t.id}" title="Click to play from here"></canvas>
+        <div class="stars">${stars}</div>
+        <div class="tags">${groups}</div>
+      </div>`;
+    }
+
+    function render() {
+      const rows = visibleTracks();
+      listEl.innerHTML = rows.length ? rows.map(rowHtml).join("") : `<div class="empty">No tracks</div>`;
+      observeWaves(listEl);
+      renderFilters();
+    }
+
+    function renderNav() {
+      const children = (parent) => state.playlists.filter((p) => p.parent === parent);
+      const html = [];
+      const walk = (parent, depth) => {
+        for (const p of children(parent)) {
+          const open = state.open.has(p.id);
+          const icon = p.folder ? (open ? "▾" : "▸") : p.smart ? "⚙" : "≡";
+          const count = p.folder ? "" : p.error ? "?" : p.track_ids.length;
+          html.push(`<button class="item${p.id === state.playlistId ? " on" : ""}" data-id="${p.id}" style="padding-left:${8 + depth * 14}px">
+            <span class="icon">${icon}</span><span class="label">${escapeHtml(p.name)}</span><span class="count">${count}</span></button>`);
+          if (p.folder && open) walk(p.id, depth + 1);
+        }
+      };
+      walk("root", 0);
+      $("nav").innerHTML = html.join("");
+    }
+
+    function selectPlaylist(id) {
+      state.playlistId = id;
+      // Open every folder above the selected playlist.
+      for (let p = currentPlaylist(); p && p.parent !== "root"; p = state.playlists.find((x) => x.id === p.parent)) {
+        state.open.add(p.parent);
+      }
+      saveNavState();
+      renderNav();
+      render();
+      listEl.scrollTop = 0;
+    }
+
+    function renderRow(id) {
+      const el = listEl.querySelector(`.row[data-id="${id}"]`);
+      const t = state.tracks.find((x) => x.id === id);
+      if (!el || !t) return;
+      el.outerHTML = rowHtml(t);
+      observeWaves(listEl.querySelector(`.row[data-id="${id}"]`));
+    }
+
+    // Rekordbox's own waveform per row, fetched when the row scrolls into view.
+    const waves = new Map(); // track id -> waveform JSON, null when Rekordbox has none, or a pending promise
+    function loadWave(id) {
+      if (!waves.has(id)) {
+        waves.set(id, fetch(`/api/rb/waveform/${id}`)
+          .then((res) => (res.ok ? res.json() : null))
+          .catch(() => null)
+          .then((data) => { waves.set(id, data); return data; }));
+      }
+      return Promise.resolve(waves.get(id));
+    }
+    const waveObserver = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        waveObserver.unobserve(entry.target);
+        loadWave(entry.target.dataset.wave).then((data) => {
+          if (entry.target.isConnected) RbWaveform.draw(entry.target, data);
+        });
+      }
+    }, { root: listEl, rootMargin: "400px" });
+    function observeWaves(root) {
+      root?.querySelectorAll("canvas.wave").forEach((canvas) => waveObserver.observe(canvas));
+    }
+
+    // Click a waveform: play that track from the clicked point.
+    function playFromWave(id, event) {
+      const box = event.target.getBoundingClientRect();
+      const fraction = Math.min(1, Math.max(0, (event.clientX - box.left) / box.width));
+      const seek = () => { if (audio.duration) audio.currentTime = fraction * audio.duration; };
+      if (id === state.currentId && audio.duration) {
+        seek();
+        if (audio.paused) audio.play();
+        return;
+      }
+      startFrom(id);
+      audio.addEventListener("loadedmetadata", seek, { once: true });
+    }
+
+    function setSaveBar(pending, running) {
+      $("save-text").textContent = pending
+        ? `${pending} change${pending === 1 ? "" : "s"} waiting${running ? " · close Rekordbox to save" : ""}`
+        : "";
+      $("save-btn").disabled = !pending || running;
+    }
+
+    async function loadTracks() {
+      const res = await fetch("/api/rb/tracks");
+      const data = await res.json();
+      state.tracks = data.tracks;
+      state.groups = data.groups;
+      state.multi = new Set(data.multi);
+      state.trackById = new Map(state.tracks.map((t) => [t.id, t]));
+      state.filterGroups = [{ field: "energy", tags: ["1", "2", "3", "4", "5"] }, ...data.filters];
+      state.playlists = data.playlists;
+      setSaveBar(data.pending, data.rekordbox_running);
+      if (!currentPlaylist() || currentPlaylist().folder) {
+        const fallback = state.playlists.find((p) => p.name === "Tracks" && !p.folder) || state.playlists.find((p) => !p.folder);
+        state.playlistId = fallback?.id || null;
+      }
+      selectPlaylist(state.playlistId);
+    }
+
+    async function refreshStatus() {
+      try {
+        const data = await (await fetch("/api/rb/status")).json();
+        setSaveBar(data.pending, data.rekordbox_running);
+      } catch {}
+    }
+
+    async function edit(id, field, value) {
+      const t = state.tracks.find((x) => x.id === id);
+      if (!t) return;
+      t[field] = value;
+      t.pending = true;
+      renderRow(id);
+      renderFilters();
+      const res = await fetch("/api/rb/edit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, field, value }),
+      });
+      const data = await res.json();
+      if (data.ok) refreshStatus();
+    }
+
+    function toggleEnergy(id, n) {
+      const t = state.tracks.find((x) => x.id === id);
+      if (t) edit(id, "energy", t.energy === n ? 0 : n);
+    }
+
+    function toggleTag(id, field, name) {
+      const t = state.tracks.find((x) => x.id === id);
+      if (!t) return;
+      if (state.multi.has(field)) {
+        edit(id, field, t[field].includes(name) ? t[field].filter((n) => n !== name) : [...t[field], name]);
+      } else {
+        edit(id, field, t[field] === name ? null : name);
+      }
+    }
+
+    // Playback: plays the visible list in order and keeps going, like Spotify.
+    function play(id) {
+      const previous = state.currentId;
+      state.currentId = id;
+      const t = state.tracks.find((x) => x.id === id);
+      audio.src = `/api/rb/audio/${id}`;
+      audio.play();
+      $("now-title").textContent = t ? `${t.title} — ${t.artist}` : "";
+      if (previous) renderRow(previous);
+      renderRow(id);
+      listEl.querySelector(`.row[data-id="${id}"]`)?.scrollIntoView({ block: "nearest" });
+    }
+
+    function startFrom(id) {
+      state.queue = visibleTracks().map((t) => t.id);
+      play(id);
+    }
+
+    function step(delta) {
+      if (!state.queue.includes(state.currentId)) state.queue = visibleTracks().map((t) => t.id);
+      if (!state.queue.length) return;
+      const i = state.queue.indexOf(state.currentId);
+      const next = state.queue[i === -1 ? 0 : i + delta];
+      if (next) play(next);
+    }
+
+    function toggle() {
+      if (!state.currentId) return step(0);
+      audio.paused ? audio.play() : audio.pause();
+    }
+
+    const fmt = (s) => (isFinite(s) ? `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}` : "0:00");
+    audio.addEventListener("timeupdate", () => {
+      $("cur").textContent = fmt(audio.currentTime);
+      $("dur").textContent = fmt(audio.duration);
+      if (audio.duration) $("seek").value = (audio.currentTime / audio.duration) * 1000;
+    });
+    for (const ev of ["play", "pause"]) {
+      audio.addEventListener(ev, () => {
+        $("toggle").textContent = audio.paused ? "▶" : "❚❚";
+        if (state.currentId) renderRow(state.currentId);
+      });
+    }
+    audio.addEventListener("ended", () => step(1));
+    audio.addEventListener("error", () => step(1));
+    $("seek").addEventListener("input", (e) => {
+      if (audio.duration) audio.currentTime = (e.target.value / 1000) * audio.duration;
+    });
+    $("toggle").onclick = toggle;
+    $("prev").onclick = () => step(-1);
+    $("next").onclick = () => step(1);
+
+    listEl.addEventListener("click", (e) => {
+      const row = e.target.closest(".row");
+      if (!row) return;
+      const id = row.dataset.id;
+      const btn = e.target.closest("button");
+      if (btn?.dataset.energy) return toggleEnergy(id, Number(btn.dataset.energy));
+      if (btn?.dataset.field) return toggleTag(id, btn.dataset.field, btn.dataset.tag);
+      if (e.target.closest(".wave")) return playFromWave(id, e);
+      if (btn?.classList.contains("play") && id === state.currentId) return toggle();
+      if (btn?.classList.contains("play") || e.target.closest(".name")) startFrom(id);
+    });
+
+    $("nav").addEventListener("click", (e) => {
+      const item = e.target.closest(".item");
+      if (!item) return;
+      const p = state.playlists.find((x) => x.id === item.dataset.id);
+      if (!p) return;
+      if (p.folder) {
+        state.open.has(p.id) ? state.open.delete(p.id) : state.open.add(p.id);
+        saveNavState();
+        renderNav();
+      } else {
+        selectPlaylist(p.id);
+      }
+    });
+
+    $("filters").addEventListener("change", (e) => {
+      const box = e.target.closest("input[type=checkbox]");
+      if (!box) return;
+      const set = (state.filters[box.dataset.field] ||= new Set());
+      box.checked ? set.add(box.dataset.value) : set.delete(box.dataset.value);
+      box.blur(); // keep Space and arrows for the player
+      saveNavState();
+      render();
+    });
+    $("filters").addEventListener("click", (e) => {
+      if (e.target.id !== "filter-clear") return;
+      state.filters = {};
+      saveNavState();
+      render();
+    });
+    const toggleFilterPanel = () => ($("filters").hidden = !$("filters").hidden);
+    $("filter-btn").onclick = toggleFilterPanel;
+
+    for (const group of ["show"]) {
+      $(group).addEventListener("click", (e) => {
+        const btn = e.target.closest("button");
+        if (!btn) return;
+        state[group] = btn.dataset.v;
+        $(group).querySelectorAll("button").forEach((b) => b.classList.toggle("on", b === btn));
+        render();
+      });
+    }
+    $("search").addEventListener("input", (e) => {
+      state.query = e.target.value;
+      render();
+    });
+
+    $("save-btn").onclick = async () => {
+      $("save-btn").disabled = true;
+      const data = await (await fetch("/api/rb/apply", { method: "POST" })).json();
+      if (!data.ok) alert(data.error);
+      await loadTracks();
+    };
+
+    document.addEventListener("keydown", (e) => {
+      if (e.target.id === "search") {
+        if (e.key === "Escape") e.target.blur();
+        return;
+      }
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const key = e.key.toLowerCase();
+      const fnByKey = Object.fromEntries((state.groups.function || []).map((f) => [f[0].toLowerCase(), f]));
+      if (e.key === " ") { e.preventDefault(); toggle(); }
+      else if (e.key === "ArrowRight") { e.preventDefault(); e.shiftKey ? (audio.currentTime += 15) : step(1); }
+      else if (e.key === "ArrowLeft") { e.preventDefault(); e.shiftKey ? (audio.currentTime -= 15) : step(-1); }
+      else if (e.key === "/") { e.preventDefault(); $("search").focus(); }
+      else if (key === "f") toggleFilterPanel();
+      else if (!state.currentId) return;
+      else if (/^[1-5]$/.test(e.key)) toggleEnergy(state.currentId, Number(e.key));
+      else if (e.key === "0") edit(state.currentId, "energy", 0);
+      else if (fnByKey[key]) toggleTag(state.currentId, "function", fnByKey[key]);
+    });
+
+    loadNavState();
+    if (activeFilterCount()) $("filters").hidden = false;
+    setInterval(refreshStatus, 4000);
+    loadTracks();
+  </script>
+</body>
+</html>

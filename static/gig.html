@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Seta · Gig plans</title>
+  <style>
+    :root { color-scheme: light dark; --bg:#fff; --panel:#f5f5f8; --border:#e2e2ea; --text:#1a1a24; --muted:#6b6b80; --accent:#6b4fd8; --soft:#f0ecff; }
+    @media (prefers-color-scheme:dark) { :root { --bg:#15151c; --panel:#1e1e28; --border:#2e2e3a; --text:#ececf2; --muted:#a4a4b8; --accent:#b6a3ff; --soft:#29213e; } }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--text); font:14px/1.5 system-ui,sans-serif; }
+    a { color:var(--accent); }
+    button,select { font:inherit; color:inherit; }
+    button { cursor:pointer; }
+    button:disabled { opacity:.45; cursor:default; }
+    button:focus-visible,a:focus-visible,select:focus-visible { outline:3px solid var(--accent); outline-offset:3px; }
+    header { display:flex; align-items:center; flex-wrap:wrap; gap:12px; padding:16px 24px; border-bottom:1px solid var(--border); }
+    header strong { margin-right:auto; }
+    main { max-width:1100px; margin:auto; padding:28px 24px 190px; }
+    .muted { color:var(--muted); }
+    .eyebrow { color:var(--muted); font-size:12px; letter-spacing:.08em; text-transform:uppercase; }
+    h1 { font-size:32px; line-height:1.2; margin:6px 0 12px; }
+    h2 { font-size:19px; margin:24px 0 12px; }
+    p { max-width:760px; }
+    #version { padding:7px 10px; border:1px solid var(--border); border-radius:8px; background:var(--bg); max-width:100%; }
+    .summary { display:flex; gap:8px; flex-wrap:wrap; margin:18px 0; }
+    .chip { display:inline-block; background:var(--panel); border:1px solid var(--border); border-radius:999px; padding:3px 9px; font-size:12px; }
+    #chapters { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; }
+    .chapter { border-left:3px solid var(--accent); padding:8px 12px; background:var(--panel); border-radius:0 8px 8px 0; }
+    .chapter strong { display:block; }
+    .chapter p { margin:4px 0 0; color:var(--muted); font-size:12px; }
+    .list-heading { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin:24px 0 12px; }
+    .list-heading h2 { margin:0; margin-right:auto; }
+    .primary { padding:8px 14px; border:0; border-radius:8px; background:var(--accent); color:var(--bg); font-weight:600; }
+    .row { display:grid; grid-template-columns:42px minmax(0,1fr) auto; gap:12px; padding:16px 0; border-bottom:1px solid var(--border); }
+    .row.playing { background:var(--soft); border-radius:8px; padding-left:8px; padding-right:8px; }
+    .play { width:38px; height:38px; border:1px solid var(--border); border-radius:50%; background:var(--panel); }
+    .title { display:block; font-weight:600; }
+    .artist { color:var(--muted); }
+    .metadata { display:flex; gap:5px; flex-wrap:wrap; margin:7px 0; }
+    .energy { color:#8a5e00; font-weight:600; }
+    @media (prefers-color-scheme:dark) { .energy { color:#e8a400; } }
+    .note { margin:6px 0 0; font-size:13px; color:var(--muted); }
+    .number { color:var(--muted); padding-top:8px; font-variant-numeric:tabular-nums; }
+    #notice,#error { border-left:3px solid var(--accent); padding:8px 12px; background:var(--panel); }
+    #error:empty { display:none; }
+    footer { position:fixed; inset:auto 0 0; padding:12px 24px; border-top:1px solid var(--border); background:var(--panel); }
+    .player { max-width:1052px; margin:auto; display:grid; grid-template-columns:auto minmax(0,1fr); gap:8px 14px; align-items:center; }
+    .transport { display:flex; gap:6px; }
+    .transport button { border:1px solid var(--border); border-radius:8px; background:var(--bg); padding:8px 12px; }
+    #now { overflow-wrap:anywhere; }
+    audio { width:100%; grid-column:1/-1; height:40px; }
+    @media (max-width:600px) { header,footer { padding:12px; } main { padding:20px 12px 210px; } h1 { font-size:27px; } .row { gap:8px; } #chapters { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+  <header><strong>Seta 🍄 Gig plans</strong><a href="/tags">Tags</a><a href="/">Map</a><label for="version">Version</label><select id="version" disabled><option>Loading…</option></select></header>
+  <main>
+    <div class="eyebrow" id="event"></div><h1 id="title">Loading gig plans…</h1>
+    <p id="story"></p><div class="summary" id="summary"></div>
+    <div id="chapters"></div><p id="notice" hidden></p>
+    <div class="list-heading"><h2 id="count">Playlist</h2><span class="muted">Full tracks, back to back</span><button id="play-all" class="primary" disabled>Play from start</button></div>
+    <div id="tracks"></div><p id="checks" class="muted"></p>
+    <p id="error" role="alert"></p>
+  </main>
+  <footer><div class="player"><div class="transport"><button id="prev" aria-label="Previous track" disabled>←</button><button id="next" aria-label="Next track" disabled>→</button></div><div id="now" aria-live="polite">Choose a track or play from start.</div><audio id="audio" controls preload="metadata"></audio></div></footer>
+  <script src="/static/renderSafe.js"></script>
+  <script>
+    const $ = id => document.getElementById(id);
+    const escape = SetaRenderSafe.html;
+    const audio = $("audio");
+    let plans = [], tracks = new Map(), currentPlan, currentId = null;
+    const fmt = seconds => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2,"0")}`;
+    const queue = () => currentPlan.tracks.filter(item => tracks.has(item.id));
+    const chip = text => `<span class="chip">${escape(text)}</span>`;
+    function render() {
+      $("event").textContent = currentPlan.event;
+      $("title").textContent = currentPlan.title;
+      $("story").textContent = currentPlan.story;
+      $("summary").innerHTML = [currentPlan.author, `Mix target ${currentPlan.target}`, `Full tracks ${fmt(currentPlan.tracks.reduce((sum,t) => sum+t.duration,0))}`].map(chip).join("");
+      $("chapters").innerHTML = currentPlan.chapters.map(c => `<section class="chapter"><strong>${escape(c.title)}</strong><p>${escape(c.text)}</p></section>`).join("");
+      $("count").textContent = `${currentPlan.tracks.length} tracks · in order`;
+      $("checks").textContent = currentPlan.checks;
+      $("notice").hidden = !currentPlan.notice;
+      $("notice").textContent = currentPlan.notice || "";
+      $("tracks").innerHTML = currentPlan.tracks.map((item,i) => {
+        const t = tracks.get(item.id);
+        if (!t) return `<article class="row"><button class="play" disabled aria-label="Track unavailable">—</button><div><strong>${escape(item.title)}</strong><p class="note">Unavailable in the current collection.</p></div><span class="number">${i+1}</span></article>`;
+        const tags = [t.function, ...(t.state || []), ...(t.source ? [`Source: ${t.source}`] : []), ...Object.entries(t.tags || {}).flatMap(([group,values]) => values.map(value => `${group}: ${value}`))].filter(Boolean);
+        return `<article class="row${currentId===item.id ? " playing" : ""}" data-id="${escape(item.id)}"><button class="play" data-id="${escape(item.id)}" aria-label="Play ${escape(item.title)}">${currentId===item.id && !audio.paused ? "❚❚" : "▶"}</button><div><span class="title">${escape(item.title)}</span><div class="artist">${escape(t.artist)}</div><div class="metadata"><span class="chip energy">${t.energy ? "★".repeat(t.energy)+` ${t.energy}/5` : "Unrated"}</span>${chip(`${t.bpm ?? "?"} BPM · ${t.key || "?"} · ${fmt(item.duration)}`)}${tags.map(chip).join("")}${t.pending ? chip("Pending tag edit") : ""}</div><p class="note">${escape(item.note)}</p></div><span class="number">${i+1}</span></article>`;
+      }).join("");
+      updatePlayback();
+    }
+    function updatePlayback() {
+      for (const row of $("tracks").querySelectorAll(".row[data-id]")) {
+        const playing = row.dataset.id === currentId;
+        row.classList.toggle("playing", playing);
+        const button = row.querySelector(".play");
+        button.textContent = playing && !audio.paused ? "❚❚" : "▶";
+        button.setAttribute("aria-label", `${playing && !audio.paused ? "Pause" : "Play"} ${row.querySelector(".title").textContent}`);
+      }
+      const items = queue(), index = items.findIndex(t => t.id === currentId);
+      $("play-all").disabled = !items.length;
+      $("prev").disabled = index <= 0;
+      $("next").disabled = !items.length || index === items.length-1;
+    }
+    async function play(id) {
+      $("error").textContent = "";
+      if (id === currentId) {
+        if (!audio.paused) { audio.pause(); return; }
+      } else {
+        currentId = id;
+        audio.src = `/api/rb/audio/${encodeURIComponent(id)}`;
+        const t = tracks.get(id), item = currentPlan.tracks.find(t => t.id===id);
+        $("now").textContent = `${item.title} — ${t.artist}`;
+      }
+      updatePlayback();
+      try { await audio.play(); }
+      catch (error) { if (error.name !== "AbortError") $("error").textContent = `Could not play this track: ${error.message}`; }
+    }
+    function step(delta) {
+      const items = queue(), index = items.findIndex(t => t.id===currentId);
+      const next = items[index < 0 ? 0 : index+delta];
+      if (next) play(next.id);
+    }
+    function selectPlan(id) {
+      audio.pause(); audio.removeAttribute("src"); audio.load(); currentId = null;
+      currentPlan = plans.find(p => p.id===id);
+      $("now").textContent = "Choose a track or play from start.";
+      $("error").textContent = "";
+      render();
+    }
+    $("version").onchange = event => selectPlan(event.target.value);
+    $("play-all").onclick = () => { currentId = null; play(queue()[0].id); };
+    $("prev").onclick = () => step(-1);
+    $("next").onclick = () => step(1);
+    $("tracks").onclick = event => { const button = event.target.closest("button[data-id]"); if (button) play(button.dataset.id); };
+    for (const event of ["play","pause"]) audio.addEventListener(event, () => { if (currentPlan) updatePlayback(); });
+    audio.addEventListener("ended", () => step(1));
+    audio.addEventListener("error", () => { if (currentId) $("error").textContent = "This track could not be loaded. Try another track or reload the page."; });
+    async function load() {
+      try {
+        const responses = await Promise.all([fetch("/static/gig-plans.local.json"),fetch("/api/rb/tracks")]);
+        if (!responses[0].ok) throw new Error("No local gig plans found.");
+        if (!responses[1].ok) throw new Error("Could not read the Rekordbox collection.");
+        const [local,library] = await Promise.all(responses.map(r => r.json()));
+        plans = local.plans; tracks = new Map(library.tracks.map(t => [t.id,t]));
+        if (!plans.length) throw new Error("No local gig plans found.");
+        $("version").innerHTML = plans.map(p => `<option value="${escape(p.id)}">${escape(p.author)} · ${escape(p.title)}</option>`).join("");
+        $("version").disabled = false;
+        selectPlan(plans[0].id);
+      } catch (error) { $("title").textContent = "Gig plans unavailable"; $("error").textContent = error.message; }
+    }
+    load();
+  </script>
+</body>
+</html>
